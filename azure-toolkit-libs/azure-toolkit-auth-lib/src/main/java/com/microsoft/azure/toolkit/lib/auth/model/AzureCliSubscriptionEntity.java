@@ -5,15 +5,13 @@
 
 package com.microsoft.azure.toolkit.lib.auth.model;
 
-
+import com.azure.core.management.AzureEnvironment;
 import lombok.Getter;
 import lombok.Setter;
 
 @Setter
 @Getter
-public class SubscriptionEntity {
-    private String id;
-    private String name;
-    private String tenantId;
-    private boolean selected;
+public class AzureCliSubscriptionEntity extends SubscriptionEntity {
+    private AzureEnvironment environment;
+    private String email;
 }

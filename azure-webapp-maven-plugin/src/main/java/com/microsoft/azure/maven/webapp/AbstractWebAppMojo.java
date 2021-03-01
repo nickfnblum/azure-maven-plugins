@@ -416,7 +416,8 @@ public abstract class AbstractWebAppMojo extends AbstractAppServiceMojo {
         try {
             final MavenAuthConfiguration mavenAuthConfiguration = auth == null ? new MavenAuthConfiguration() : auth;
             mavenAuthConfiguration.setType(getAuthType());
-            MavenAuthManager.getInstance().login(MavenAuthManager.getInstance().buildAuthConfiguration(session, settingsDecrypter, mavenAuthConfiguration));
+            com.microsoft.azure.toolkit.lib.Azure.az(AzureAccount.class).login(
+                    MavenAuthManager.getInstance().buildAuthConfiguration(session, settingsDecrypter, mavenAuthConfiguration));
             Account account = com.microsoft.azure.toolkit.lib.Azure.az(AzureAccount.class).account();
             if (!account.isAuthenticated()) {
                 return null;
@@ -440,7 +441,7 @@ public abstract class AbstractWebAppMojo extends AbstractAppServiceMojo {
             final AzureProfile profile = new AzureProfile(current.getTenantId(), current.getId(), env);
 
             final AzureResourceManager.Authenticated authenticated =
-                    AzureResourceManager.configure().authenticate(account.getCredential(current.getId()), profile);
+                    AzureResourceManager.configure().authenticate(account.getTokenCredentialForSubscription(current.getId()), profile);
             final AzureResourceManager azureResourceManager = authenticated.withSubscription(targetSubscriptionId);
             final Subscription subscription = azureResourceManager.getCurrentSubscription();
             if (subscription != null) {

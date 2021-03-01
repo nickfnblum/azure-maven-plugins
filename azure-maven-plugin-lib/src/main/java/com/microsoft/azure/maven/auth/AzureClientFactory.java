@@ -18,7 +18,7 @@ public class AzureClientFactory {
     public static Azure getAzureClient(String userAgent, String defaultSubscriptionId) throws IOException, AzureLoginException {
         Account account = com.microsoft.azure.toolkit.lib.Azure.az(AzureAccount.class).account();
         final Authenticated authenticated = Azure.configure().withUserAgent(userAgent)
-                .authenticate(account.getCredentialV1(defaultSubscriptionId));
+                .authenticate(account.getTokenCredentialV1ForSubscription(defaultSubscriptionId));
 
         return StringUtils.isEmpty(defaultSubscriptionId) ? authenticated.withDefaultSubscription() :
                 authenticated.withSubscription(defaultSubscriptionId);

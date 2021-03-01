@@ -12,7 +12,8 @@ import com.microsoft.azure.common.exceptions.AzureExecutionException;
 
 import com.microsoft.azure.management.appservice.WebAppBase;
 import com.microsoft.azure.maven.auth.AzureAuthFailureException;
-import com.microsoft.azure.toolkit.lib.auth.model.AzureCredentialWrapper;
+import com.microsoft.azure.toolkit.lib.Azure;
+import com.microsoft.azure.toolkit.lib.auth.AzureAccount;
 import org.apache.maven.model.Resource;
 import org.apache.maven.plugins.annotations.Parameter;
 
@@ -150,8 +151,7 @@ public abstract class AbstractAppServiceMojo extends AbstractAzureMojo {
     }
 
     public String getResourcePortalUrl(WebAppBase resource) throws AzureAuthFailureException, AzureExecutionException {
-        final AzureCredentialWrapper azureCredentialWrapper = getAzureCredentialWrapper();
-        final AzureEnvironment environment = azureCredentialWrapper.getEnv();
+        final AzureEnvironment environment = Azure.az(AzureAccount.class).account().getEnvironment();
         final String tenantId = getAzureClient().tenantId();
         return String.format(PORTAL_URL_PATTERN, getPortalUrl(environment), tenantId, resource.id());
     }

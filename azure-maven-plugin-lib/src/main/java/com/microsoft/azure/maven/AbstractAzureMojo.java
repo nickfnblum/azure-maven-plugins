@@ -12,7 +12,6 @@ import com.microsoft.azure.common.logging.Log;
 import com.microsoft.azure.common.utils.GetHashMac;
 import com.microsoft.azure.toolkit.lib.auth.Account;
 import com.microsoft.azure.toolkit.lib.auth.AzureAccount;
-import com.microsoft.azure.toolkit.lib.auth.model.AzureCredentialWrapper;
 import com.microsoft.azure.toolkit.lib.auth.model.SubscriptionEntity;
 import com.microsoft.azure.toolkit.lib.auth.util.AzureEnvironmentUtils;
 import com.microsoft.azure.toolkit.lib.common.utils.TextUtils;
@@ -82,8 +81,8 @@ public abstract class AbstractAzureMojo extends AbstractMojo implements Telemetr
     private static final String AUTH_TYPE = "authType";
     private static final String AUTH_METHOD = "authMethod";
     private static final String TELEMETRY_NOT_ALLOWED = "TelemetryNotAllowed";
-    protected static final String INIT_FAILURE = "InitFailure";
-    protected static final String AZURE_INIT_FAIL = "Failed to authenticate with Azure. Please check your configuration.";
+    private static final String INIT_FAILURE = "InitFailure";
+    private static final String AZURE_INIT_FAIL = "Failed to authenticate with Azure. Please check your configuration.";
     private static final String FAILURE_REASON = "failureReason";
     private static final String JVM_UP_TIME = "jvmUpTime";
     private static final String CONFIGURATION_PATH = Paths.get(System.getProperty("user.home"),
@@ -200,8 +199,6 @@ public abstract class AbstractAzureMojo extends AbstractMojo implements Telemetr
     private Azure azure;
 
     private TelemetryProxy telemetryProxy;
-
-    private AzureCredentialWrapper azureCredentialWrapper;
 
     private String sessionId = UUID.randomUUID().toString();
 
@@ -340,7 +337,8 @@ public abstract class AbstractAzureMojo extends AbstractMojo implements Telemetr
             mavenAuthConfiguration.setType(getAuthType());
 
             SystemPropertyUtils.injectCommandLineParameter("auth", mavenAuthConfiguration, MavenAuthConfiguration.class);
-            MavenAuthManager.getInstance().login(MavenAuthManager.getInstance().buildAuthConfiguration(session, settingsDecrypter, mavenAuthConfiguration));
+            com.microsoft.azure.toolkit.lib.Azure.az(AzureAccount.class).login(
+                    MavenAuthManager.getInstance().buildAuthConfiguration(session, settingsDecrypter, mavenAuthConfiguration));
             Account account = com.microsoft.azure.toolkit.lib.Azure.az(AzureAccount.class).account();
             if (!account.isAuthenticated()) {
                 return null;
@@ -364,7 +362,7 @@ public abstract class AbstractAzureMojo extends AbstractMojo implements Telemetr
 
     protected void printCredentialDescription(Account account) {
         List<String> details = new ArrayList<>();
-        details.add(String.format("Auth method: %s", TextUtils.cyan(account.getEntity().getMethod().toString())));
+        details.add(String.format("Auth method: %s", TextUtils.cyan(account.getMethod().toString())));
         List<SubscriptionEntity> selectedSubscriptions = account.getSelectedSubscriptions();
         if (StringUtils.isNotEmpty(account.getEntity().getEmail())) {
             details.add(String.format("Username: %s", TextUtils.cyan(account.getEntity().getEmail())));
@@ -373,10 +371,6 @@ public abstract class AbstractAzureMojo extends AbstractMojo implements Telemetr
             details.add(String.format("Default subscription: %s", TextUtils.cyan(selectedSubscriptions.get(0).getId())));
         }
         System.out.println(StringUtils.join(details.toArray(), "\n"));
-    }
-
-    protected AzureCredentialWrapper getAzureCredentialWrapper() {
-        return azureCredentialWrapper;
     }
 
     public TelemetryProxy getTelemetryProxy() {
@@ -429,8 +423,9 @@ public abstract class AbstractAzureMojo extends AbstractMojo implements Telemetr
     }
 
     public String getAuthMethod() {
-        if (azureCredentialWrapper != null) {
-            return azureCredentialWrapper.getAuthMethod().name();
+        Account account = com.microsoft.azure.toolkit.lib.Azure.az(AzureAccount.class).account();
+        if (account != null) {
+            return account.getMethod().toString();
         }
         final AuthenticationSetting authSetting = getAuthenticationSetting();
         if (authSetting == null) {

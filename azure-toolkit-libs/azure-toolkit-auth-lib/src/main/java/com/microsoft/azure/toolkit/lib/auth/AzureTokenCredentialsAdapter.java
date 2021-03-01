@@ -10,6 +10,9 @@ import com.azure.core.credential.TokenCredential;
 import com.azure.core.credential.TokenRequestContext;
 import com.microsoft.azure.AzureEnvironment;
 import com.microsoft.azure.credentials.AzureTokenCredentials;
+import org.apache.commons.lang3.StringUtils;
+
+import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -17,17 +20,17 @@ import java.util.concurrent.ConcurrentHashMap;
  * Convert token credential in azure-identity to legacy AzureTokenCredentials
  * Refers https://github.com/jongio/azidext/blob/master/java/src/main/java/com/azure/identity/extensions/AzureIdentityCredentialAdapter.java
  */
-public class AzureIdentityCredentialTokenCredentials extends AzureTokenCredentials {
+public class AzureTokenCredentialsAdapter extends AzureTokenCredentials {
     private final TokenCredential tokenCredential;
     private final Map<String, AccessToken> accessTokenCache = new ConcurrentHashMap<>();
     private final String[] scopes;
 
-    public AzureIdentityCredentialTokenCredentials(AzureEnvironment environment, String tenantId, TokenCredential tokenCredential) {
+    AzureTokenCredentialsAdapter(AzureEnvironment environment, String tenantId, TokenCredential tokenCredential) {
         this(environment, tenantId, tokenCredential, new String[]{environment.managementEndpoint() + "/.default"});
     }
 
-    public AzureIdentityCredentialTokenCredentials(AzureEnvironment environment, String tenantId,
-                                                   TokenCredential tokenCredential, String[] scopes) {
+    AzureTokenCredentialsAdapter(AzureEnvironment environment, String tenantId,
+                                        TokenCredential tokenCredential, String[] scopes) {
         super(environment, tenantId);
         this.tokenCredential = tokenCredential;
         this.scopes = scopes;
@@ -40,6 +43,14 @@ public class AzureIdentityCredentialTokenCredentials extends AzureTokenCredentia
                 this.tokenCredential.getToken(new TokenRequestContext().addScopes(scopes)).block());
         }
         return accessTokenCache.get(endpoint).getToken();
+    }
+
+    public static AzureTokenCredentials from(com.azure.core.management.AzureEnvironment env, String tenantId, TokenCredential tokenCredential) {
+        AzureEnvironment azureEnvironment = Arrays.stream(AzureEnvironment.knownEnvironments())
+                .filter(e -> StringUtils.equalsIgnoreCase(env.getManagementEndpoint(), e.managementEndpoint()))
+                .findFirst().orElse(AzureEnvironment.AZURE);
+
+        return new AzureTokenCredentialsAdapter(azureEnvironment, tenantId, tokenCredential);
     }
 
 }

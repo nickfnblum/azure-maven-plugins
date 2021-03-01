@@ -5,55 +5,99 @@
 
 package com.microsoft.azure.toolkit.lib.auth.core.visualstudio;
 
-import com.azure.core.credential.TokenCredential;
+import com.azure.core.credential.AccessToken;
+import com.azure.core.credential.TokenRequestContext;
 import com.azure.core.management.AzureEnvironment;
 import com.azure.identity.SharedTokenCacheCredential;
 import com.azure.identity.SharedTokenCacheCredentialBuilder;
 import com.azure.identity.implementation.IdentityClient;
+import com.azure.identity.implementation.MsalToken;
 import com.azure.identity.implementation.SynchronizedAccessor;
+import com.azure.identity.implementation.util.ScopeUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.microsoft.aad.msal4j.IAuthenticationResult;
 import com.microsoft.aad.msal4j.PublicClientApplication;
 import com.microsoft.aad.msal4j.TokenCache;
-import com.microsoft.azure.toolkit.lib.auth.core.IAccountEntityBuilder;
-import com.microsoft.azure.toolkit.lib.auth.core.ICredentialProvider;
-import com.microsoft.azure.toolkit.lib.auth.model.AccountEntity;
+import com.microsoft.azure.toolkit.lib.auth.Account;
+import com.microsoft.azure.toolkit.lib.auth.MasterTokenCredential;
+import com.microsoft.azure.toolkit.lib.auth.core.refresktoken.RefreshTokenMasterTokenCredential;
+import com.microsoft.azure.toolkit.lib.auth.exception.AzureToolkitAuthenticationException;
+import com.microsoft.azure.toolkit.lib.auth.exception.LoginFailureException;
 import com.microsoft.azure.toolkit.lib.auth.model.AuthMethod;
-import com.microsoft.azure.toolkit.lib.auth.util.AccountBuilderUtils;
-import com.microsoft.azure.toolkit.lib.auth.util.AzureEnvironmentUtils;
 import com.microsoft.azure.toolkit.lib.common.utils.Utils;
-import lombok.AllArgsConstructor;
+import lombok.Getter;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
-@AllArgsConstructor
-public class VisualStudioAccountEntityBuilder implements IAccountEntityBuilder {
+public class VisualStudioAccount extends Account {
     private static final String VISUAL_STUDIO_CLIENT_ID = "872cd9fa-d31f-45e0-9eab-6e460a02d1f1";
+    @Getter
+    private final AuthMethod method = AuthMethod.VISUAL_STUDIO;
+
     private AzureEnvironment environment;
 
-    @Override
-    public AccountEntity build() {
-        AccountEntity accountEntity = AccountBuilderUtils.createAccountEntity(AuthMethod.VISUAL_STUDIO);
+    private Optional<Pair<AzureEnvironment, CachedAccountEntity>> vsAccount;
+
+
+    public VisualStudioAccount(AzureEnvironment environment) {
+        this.environment = environment;
         try {
-            return buildInner(accountEntity);
+            loadVisualStudioAccounts();
         } catch (IllegalAccessException | JsonProcessingException | ExecutionException | InterruptedException e) {
-            accountEntity.setError(e);
+            throw new AzureToolkitAuthenticationException(e.getMessage());
         }
-        return accountEntity;
     }
 
-    private AccountEntity buildInner(AccountEntity accountEntity)
+    @Override
+    public boolean isAvailable() {
+        return vsAccount.isPresent();
+    }
+
+    @Override
+    public void initializeCredentials() throws LoginFailureException {
+        entity.setEnvironment(vsAccount.get().getKey());
+        this.environment = entity.getEnvironment();
+        entity.setEmail(vsAccount.get().getValue().getUsername());
+        SharedTokenCacheCredential vsCredential = new SharedTokenCacheCredentialBuilder().clientId(VISUAL_STUDIO_CLIENT_ID)
+                .tenantId(null).username(entity.getEmail()).build();
+        AccessToken accessToken = vsCredential.getToken(new TokenRequestContext()
+                .addScopes(ScopeUtil.resourceToScopes(entity.getEnvironment().getManagementEndpoint()))).block();
+
+        // legacy code will be removed after https://github.com/jongio/azidext/pull/41 is merged
+        IAuthenticationResult result = ((MsalToken) accessToken).getAuthenticationResult();
+        if (result != null && result.account() != null) {
+            this.entity.setEmail(result.account().username());
+        }
+        String refreshToken;
+        try {
+            refreshToken = (String) FieldUtils.readField(result, "refreshToken", true);
+        } catch (IllegalAccessException e) {
+            throw new LoginFailureException("Cannot read refreshToken from Visual Studio shared token pools.");
+        }
+        if (StringUtils.isBlank(refreshToken)) {
+            throw new LoginFailureException("Cannot read refreshToken from Visual Studio shared token pools.");
+        }
+
+        MasterTokenCredential oauthMasterTokenCredential =
+                new RefreshTokenMasterTokenCredential(environment, VISUAL_STUDIO_CLIENT_ID, refreshToken);
+        entity.setCredential(oauthMasterTokenCredential);
+    }
+
+    private void loadVisualStudioAccounts()
             throws IllegalAccessException, JsonProcessingException, ExecutionException, InterruptedException {
         Map<String, AzureEnvironment> envEndpoints = Utils.groupByIgnoreDuplicate(
-                AzureEnvironment.knownEnvironments(), AzureEnvironment::getManagementEndpoint);
+                environment != null ? Collections.singletonList(environment) : AzureEnvironment.knownEnvironments(), AzureEnvironment::getManagementEndpoint);
+
         SharedTokenCacheCredential cred = new SharedTokenCacheCredentialBuilder().clientId(VISUAL_STUDIO_CLIENT_ID).username("test-account").build();
         IdentityClient identityClient = (IdentityClient) FieldUtils.readField(cred, "identityClient", true);
         SynchronizedAccessor<PublicClientApplication> publicClientApplicationAccessor = (SynchronizedAccessor<PublicClientApplication>)
@@ -63,7 +107,6 @@ public class VisualStudioAccountEntityBuilder implements IAccountEntityBuilder {
         TokenCacheEntity tokenCacheEntity = convertByJson(tc, TokenCacheEntity.class);
         final Map<String, CachedAccountEntity> accountMap = Utils.groupByIgnoreDuplicate(
                 tokenCacheEntity.getAccounts().values(), CachedAccountEntity::getHomeAccountId);
-
         Set<Pair<AzureEnvironment, CachedAccountEntity>> sharedAccounts = new HashSet<>();
         tokenCacheEntity.getAccessTokens().values().stream().forEach(refreshTokenCache -> {
             if (StringUtils.equalsIgnoreCase(refreshTokenCache.getClientId(), VISUAL_STUDIO_CLIENT_ID)) {
@@ -80,32 +123,13 @@ public class VisualStudioAccountEntityBuilder implements IAccountEntityBuilder {
         });
 
         // where there are multiple accounts, we will prefer azure global accounts
-        Optional<Pair<AzureEnvironment, CachedAccountEntity>> firstAccount = sharedAccounts.stream()
+        vsAccount = sharedAccounts.stream()
                 .filter(accountInCache -> accountInCache.getKey() == AzureEnvironment.AZURE).findFirst();
-
-        if (!firstAccount.isPresent()) {
+        // TODO: add username in AuthConfiguration for selecting accounts in Visual Studio credentials
+        if (!vsAccount.isPresent()) {
             // where there are multiple non-global accounts, select any of them
-            firstAccount = sharedAccounts.stream().findFirst();
+            vsAccount = sharedAccounts.stream().findFirst();
         }
-        if (!firstAccount.isPresent()) {
-            return accountEntity;
-        }
-        accountEntity.setEnvironment(firstAccount.get().getKey());
-        accountEntity.setEmail(firstAccount.get().getValue().getUsername());
-        AzureEnvironmentUtils.setupAzureEnvironment(accountEntity.getEnvironment());
-        accountEntity.setCredentialBuilder(new ICredentialProvider() {
-            @Override
-            public TokenCredential provideCredentialForTenant(String tenantId) {
-                return new SharedTokenCacheCredentialBuilder().clientId(VISUAL_STUDIO_CLIENT_ID).tenantId(tenantId).username(accountEntity.getEmail()).build();
-            }
-
-            @Override
-            public TokenCredential provideCredentialCommon() {
-                return new SharedTokenCacheCredentialBuilder().clientId(VISUAL_STUDIO_CLIENT_ID).username(accountEntity.getEmail()).build();
-            }
-        });
-        AccountBuilderUtils.listTenants(accountEntity);
-        return accountEntity;
     }
 
     private static <T> T convertByJson(Object from, Class<T> toClass) throws JsonProcessingException {

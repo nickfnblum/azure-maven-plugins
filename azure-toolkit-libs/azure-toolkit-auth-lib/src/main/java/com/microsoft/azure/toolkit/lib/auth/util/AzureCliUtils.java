@@ -12,7 +12,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
-import com.google.gson.JsonSyntaxException;
+import com.microsoft.azure.toolkit.lib.auth.model.AzureCliSubscriptionEntity;
+import com.microsoft.azure.toolkit.lib.auth.exception.AzureToolkitAuthenticationException;
 import com.microsoft.azure.toolkit.lib.common.utils.JsonUtils;
 import org.apache.commons.lang3.StringUtils;
 
@@ -20,9 +21,11 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-public class AzCommandUtils {
+public class AzureCliUtils {
     private static final boolean isWindows = System.getProperty("os.name").contains("Windows");
     private static final String WINDOWS_STARTER = "cmd.exe";
     private static final String LINUX_MAC_STARTER = "/bin/sh";
@@ -32,6 +35,85 @@ public class AzCommandUtils {
     private static final String DEFAULT_MAC_LINUX_PATH = "/bin/";
     private static final String WINDOWS_PROCESS_ERROR_MESSAGE = "'az' is not recognized";
     private static final String LINUX_MAC_PROCESS_ERROR_MESSAGE = "(.*)az:(.*)not found";
+
+    public static boolean checkCliVersion() {
+        try {
+            final JsonObject result = AzureCliUtils.executeAzCommandJson("az version --output json").getAsJsonObject();
+            String cliVersion = result.get("azure-cli").getAsString();
+            // we require at least azure cli version 2.11.0
+            if (compareVersion(cliVersion, "2.11.0", 3) < 0) {
+                throw new AzureToolkitAuthenticationException(String.format("Your azure cli version '%s' is too old, " +
+                        "you need to upgrade your CLI with 'az upgrade'.", cliVersion));
+            }
+            return true;
+        } catch (NullPointerException | NumberFormatException ex) {
+            return false;
+        }
+    }
+
+    private static int compareVersion(String version1, String version2, int maxVersionCount) {
+        String[] v1s = version1.split("\\.");
+        String[] v2s = version2.split("\\.");
+        int i = 0;
+        for (; i < v1s.length && i < v2s.length && i < maxVersionCount; i++) {
+            int v1 = Integer.parseInt(v1s[i]);
+            int v2 = Integer.parseInt(v2s[i]);
+            if (v1 > v2) {
+                return 1;
+            }
+            if (v2 > v1) {
+                return -1;
+            }
+        }
+        if (i < v1s.length) {
+            for (; i < v1s.length; i++) {
+                if (Integer.parseInt(v1s[i]) != 0) {
+                    return 1;
+                }
+            }
+        }
+        if (i < v2s.length) {
+            for (; i < v2s.length; i++) {
+                if (Integer.parseInt(v2s[i]) != 0) {
+                    return -1;
+                }
+            }
+        }
+        return 0;
+    }
+
+    public static List<AzureCliSubscriptionEntity> listSubscriptions() {
+        final JsonArray result = executeAzCommandJson("az account list --output json").getAsJsonArray();
+        final List<AzureCliSubscriptionEntity> list = new ArrayList<>();
+        if (result != null) {
+            result.forEach(j -> {
+                JsonObject accountObject = j.getAsJsonObject();
+                if (!accountObject.has("id")) {
+                    return;
+                }
+                // TODO: use utility to handle the json mapping
+                String tenantId = accountObject.get("tenantId").getAsString();
+                String subscriptionId = accountObject.get("id").getAsString();
+                String subscriptionName = accountObject.get("name").getAsString();
+                String state = accountObject.get("state").getAsString();
+                String cloud = accountObject.get("cloudName").getAsString();
+                String email = accountObject.get("user").getAsJsonObject().get("name").getAsString();
+
+                if (StringUtils.equals(state, "Enabled") && StringUtils.isNoneBlank(subscriptionId, subscriptionName)) {
+                    AzureCliSubscriptionEntity entity = new AzureCliSubscriptionEntity();
+                    entity.setId(subscriptionId);
+                    entity.setName(subscriptionName);
+                    entity.setSelected(accountObject.get("isDefault").getAsBoolean());
+                    entity.setTenantId(tenantId);
+                    entity.setEmail(email);
+                    entity.setEnvironment(AzureEnvironmentUtils.stringToAzureEnvironment(cloud));
+                    list.add(entity);
+                }
+            });
+            return list;
+        }
+        return null;
+    }
 
     /**
      * Modified code based on https://github.com/Azure/azure-sdk-for-java/blob/master
@@ -98,18 +180,18 @@ public class AzCommandUtils {
                     return JsonUtils.getGson().fromJson(output.toString(), JsonObject.class);
                 }
             } catch (JsonParseException ex) {
-                throw new IllegalStateException(String.format("Cannot execute command '%s', the output '%s' cannot be parsed as a JSON.",
+                throw new AzureToolkitAuthenticationException(String.format("Cannot execute command '%s', the output '%s' cannot be parsed as a JSON.",
                         command, output.toString()));
             }
         } catch (IOException | InterruptedException e) {
-            throw new IllegalStateException(e);
+            throw new AzureToolkitAuthenticationException(e.getMessage());
         } finally {
             try {
                 if (reader != null) {
                     reader.close();
                 }
-            } catch (IOException ex) {
-                new IllegalStateException(ex);
+            } catch (IOException e) {
+                throw new AzureToolkitAuthenticationException(e.getMessage());
             }
         }
     }

@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See License.txt in the project root for license information.
  */
 
-package com.microsoft.azure.toolkit.lib.auth.core.common;
+package com.microsoft.azure.toolkit.lib.auth.core.refresktoken;
 
 import com.azure.core.credential.AccessToken;
 import com.azure.core.credential.TokenCredential;
@@ -23,12 +23,25 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-public class RefreshTokenCredentialBuilder {
-    public static TokenCredential buildTokenCredential(AzureEnvironment env, String clientId, String tenantId, String refreshToken) {
-        return buildRefreshTokenCredentialInternal(env, clientId, tenantId, refreshToken);
+public class RefreshTokenCredentialFactory {
+    public static TokenCredential fromRefreshToken(AzureEnvironment env, String clientId, String tenantId, String refreshToken) {
+        return buildRefreshTokenCredential(env, clientId, tenantId, refreshToken);
     }
 
-    public static AccessToken fromAuthenticationResult(AuthenticationResult authenticationResult) {
+    private static TokenCredential buildRefreshTokenCredential(AzureEnvironment env, String clientId, String tenantId, String refreshToken) {
+        return request -> Mono.fromCallable(() -> {
+            AuthenticationResult result =
+                    authorize(env,
+                            clientId,
+                            StringUtils.firstNonBlank(tenantId, "common"),
+                            refreshToken,
+                            StringUtils.isBlank(tenantId) ? null : ScopeUtil.scopesToResource(request.getScopes())
+                    );
+            return fromAuthenticationResult(result);
+        });
+    }
+
+    private static AccessToken fromAuthenticationResult(AuthenticationResult authenticationResult) {
         if (authenticationResult == null) {
             return null;
         }
@@ -38,24 +51,11 @@ public class RefreshTokenCredentialBuilder {
         return new AccessToken(authenticationResult.getAccessToken(), expiresOnDate);
     }
 
-    private static TokenCredential buildRefreshTokenCredentialInternal(AzureEnvironment env, String clientId, String tenantId, String refreshToken) {
-        return request -> Mono.fromCallable(() -> {
-            AuthenticationResult result =
-                    RefreshTokenCredentialBuilder.authorize(env,
-                                    clientId,
-                                    StringUtils.firstNonBlank(tenantId, "common"),
-                                    refreshToken,
-                                    StringUtils.isBlank(tenantId) ? null : ScopeUtil.scopesToResource(request.getScopes())
-                            );
-            return RefreshTokenCredentialBuilder.fromAuthenticationResult(result);
-        });
-    }
-
     private static AuthenticationResult authorize(AzureEnvironment env,
-                                                                       String clientId,
-                                                                       String tenantId,
-                                                                       String refreshToken,
-                                                                       String resource) throws LoginFailureException, MalformedURLException {
+                                                  String clientId,
+                                                  String tenantId,
+                                                  String refreshToken,
+                                                  String resource) throws LoginFailureException, MalformedURLException {
         AuthenticationContext context;
         AuthenticationResult result;
         String authorityUrl = env.getActiveDirectoryEndpoint().replaceAll("/+$", "") + "/" + tenantId;

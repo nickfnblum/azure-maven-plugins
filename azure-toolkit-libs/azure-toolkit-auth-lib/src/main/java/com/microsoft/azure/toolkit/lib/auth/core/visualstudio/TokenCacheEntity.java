@@ -12,7 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 @Data
-public class TokenCacheEntity {
+class TokenCacheEntity {
     @JsonProperty("AccessToken")
     Map<String, CachedAccessTokenEntity> accessTokens = new LinkedHashMap<>();
 
