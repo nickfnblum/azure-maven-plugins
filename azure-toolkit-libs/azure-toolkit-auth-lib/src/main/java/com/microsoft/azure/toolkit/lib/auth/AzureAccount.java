@@ -10,6 +10,8 @@ import com.azure.core.util.logging.ClientLogger;
 import com.microsoft.azure.toolkit.lib.AzureService;
 import com.microsoft.azure.toolkit.lib.auth.core.azurecli.AzureCliAccount;
 import com.microsoft.azure.toolkit.lib.auth.core.devicecode.DeviceCodeAccount;
+import com.microsoft.azure.toolkit.lib.auth.core.managedidentity.ManagedIdentityAccount;
+import com.microsoft.azure.toolkit.lib.auth.core.maven.MavenLoginAccount;
 import com.microsoft.azure.toolkit.lib.auth.core.oauth.OAuthAccount;
 import com.microsoft.azure.toolkit.lib.auth.core.serviceprincipal.ServicePrincipalAccount;
 import com.microsoft.azure.toolkit.lib.auth.core.visualstudio.VisualStudioAccount;
@@ -153,13 +155,13 @@ public class AzureAccount implements AzureService {
         Map<AuthType, Account> map = new LinkedHashMap<>();
         // SP is not there since it requires special constructor argument and it is handled in login(AuthConfiguration auth)
         AzureEnvironment environmentOrDefault = ObjectUtils.firstNonNull(env, AzureEnvironment.AZURE);
-        // map.put(AuthType.MANAGED_IDENTITY, new ManagedIdentityAccountEntityBuilder(environmentOrDefault));
+        map.put(AuthType.MANAGED_IDENTITY, new ManagedIdentityAccount(environmentOrDefault));
         map.put(AuthType.AZURE_CLI, new AzureCliAccount());
 
         map.put(AuthType.VSCODE, new VisualStudioCodeAccount());
         // null is valid for visual studio account
         map.put(AuthType.VISUAL_STUDIO, new VisualStudioAccount(env));
-        // map.put(AuthType.AZURE_AUTH_MAVEN_PLUGIN, new MavenLoginAccountEntityBuilder());
+        map.put(AuthType.AZURE_AUTH_MAVEN_PLUGIN, new MavenLoginAccount());
         map.put(AuthType.OAUTH2, new OAuthAccount(environmentOrDefault));
         map.put(AuthType.DEVICE_CODE, new DeviceCodeAccount(environmentOrDefault));
         return map;
