@@ -52,17 +52,17 @@ public abstract class RefreshTokenAccount extends Account {
         if (result != null && result.account() != null) {
             entity.setEmail(result.account().username());
         }
-        String refreshToken;
+        String refreshTokenFromResult;
         try {
-            refreshToken = (String) FieldUtils.readField(result, "refreshToken", true);
+            refreshTokenFromResult = (String) FieldUtils.readField(result, "refreshToken", true);
         } catch (IllegalAccessException e) {
             throw new LoginFailureException("Cannot read refreshToken from IAuthenticationResult.");
         }
-        if (StringUtils.isBlank(refreshToken)) {
+        if (StringUtils.isBlank(refreshTokenFromResult)) {
             throw new LoginFailureException("Fail to get refresh token.");
         }
 
-        initializeFromRefreshToken(refreshToken);
+        initializeFromRefreshToken(refreshTokenFromResult);
     }
 
     private void initializeFromRefreshToken(String refreshToken) {

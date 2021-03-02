@@ -17,12 +17,10 @@ import com.microsoft.azure.toolkit.lib.auth.core.serviceprincipal.ServicePrincip
 import com.microsoft.azure.toolkit.lib.auth.core.visualstudio.VisualStudioAccount;
 import com.microsoft.azure.toolkit.lib.auth.core.vscode.VisualStudioCodeAccount;
 import com.microsoft.azure.toolkit.lib.auth.exception.AzureToolkitAuthenticationException;
-import com.microsoft.azure.toolkit.lib.auth.exception.InvalidConfigurationException;
 import com.microsoft.azure.toolkit.lib.auth.exception.LoginFailureException;
 import com.microsoft.azure.toolkit.lib.auth.model.AuthConfiguration;
 import com.microsoft.azure.toolkit.lib.auth.model.AuthType;
 import com.microsoft.azure.toolkit.lib.auth.util.AzureEnvironmentUtils;
-import com.microsoft.azure.toolkit.lib.auth.util.ValidationUtil;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 

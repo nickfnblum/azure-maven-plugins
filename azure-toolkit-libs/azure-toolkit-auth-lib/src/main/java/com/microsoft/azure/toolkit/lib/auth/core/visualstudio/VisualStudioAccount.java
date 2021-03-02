@@ -49,7 +49,7 @@ public class VisualStudioAccount extends RefreshTokenAccount {
     @Override
     protected void initializeRefreshToken() {
         try {
-            vsAccount = loadVisualStudioAccounts();
+            loadVisualStudioAccounts();
             if (vsAccount.isPresent()) {
                 refreshToken = "dummy";
             }
@@ -69,7 +69,7 @@ public class VisualStudioAccount extends RefreshTokenAccount {
         super.initializeFromTokenCredential(vsCredential);
     }
 
-    private Optional<Pair<AzureEnvironment, CachedAccountEntity>> loadVisualStudioAccounts()
+    private void loadVisualStudioAccounts()
             throws IllegalAccessException, JsonProcessingException, ExecutionException, InterruptedException {
         Map<String, AzureEnvironment> envEndpoints = Utils.groupByIgnoreDuplicate(
                 environment != null ? Collections.singletonList(environment) : AzureEnvironment.knownEnvironments(), AzureEnvironment::getManagementEndpoint);
@@ -99,14 +99,13 @@ public class VisualStudioAccount extends RefreshTokenAccount {
         });
 
         // where there are multiple accounts, we will prefer azure global accounts
-        Optional<Pair<AzureEnvironment, CachedAccountEntity>> vsAccount = sharedAccounts.stream()
+        vsAccount = sharedAccounts.stream()
                 .filter(accountInCache -> accountInCache.getKey() == AzureEnvironment.AZURE).findFirst();
         // TODO: add username in AuthConfiguration for selecting accounts in Visual Studio credentials
         if (!vsAccount.isPresent()) {
             // where there are multiple non-global accounts, select any of them
             vsAccount = sharedAccounts.stream().findFirst();
         }
-        return vsAccount;
     }
 
     private static <T> T convertByJson(Object from, Class<T> toClass) throws JsonProcessingException {

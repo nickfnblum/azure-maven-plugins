@@ -10,7 +10,6 @@ import com.azure.identity.ManagedIdentityCredential;
 import com.azure.identity.ManagedIdentityCredentialBuilder;
 import com.microsoft.azure.toolkit.lib.auth.Account;
 import com.microsoft.azure.toolkit.lib.auth.DefaultTokenCredential;
-import com.microsoft.azure.toolkit.lib.auth.exception.LoginFailureException;
 import com.microsoft.azure.toolkit.lib.auth.model.AuthMethod;
 import com.microsoft.azure.toolkit.lib.auth.util.AzureEnvironmentUtils;
 import lombok.Getter;
