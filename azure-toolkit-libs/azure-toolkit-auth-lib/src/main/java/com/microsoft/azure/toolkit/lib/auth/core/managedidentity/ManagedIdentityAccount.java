@@ -14,6 +14,7 @@ import com.microsoft.azure.toolkit.lib.auth.exception.LoginFailureException;
 import com.microsoft.azure.toolkit.lib.auth.model.AuthMethod;
 import com.microsoft.azure.toolkit.lib.auth.util.AzureEnvironmentUtils;
 import lombok.Getter;
+import reactor.core.publisher.Mono;
 
 import javax.annotation.Nonnull;
 
@@ -33,14 +34,11 @@ public class ManagedIdentityAccount extends Account {
     }
 
     @Override
-    protected boolean checkAvailable() {
-        try {
+    protected Mono<Boolean> checkAvailableInner() {
+        return Mono.fromCallable(() -> {
             verifyTokenCredential(this.environment, managedIdentityCredential);
             return true;
-        } catch (LoginFailureException e) {
-            this.entity.setLastError(e);
-        }
-        return false;
+        });
     }
 
     @Override

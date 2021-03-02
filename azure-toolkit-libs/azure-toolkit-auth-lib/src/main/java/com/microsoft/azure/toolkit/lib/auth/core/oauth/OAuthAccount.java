@@ -5,27 +5,16 @@
 
 package com.microsoft.azure.toolkit.lib.auth.core.oauth;
 
-import com.azure.core.credential.AccessToken;
-import com.azure.core.credential.TokenRequestContext;
 import com.azure.core.management.AzureEnvironment;
 import com.azure.identity.InteractiveBrowserCredential;
 import com.azure.identity.InteractiveBrowserCredentialBuilder;
-import com.azure.identity.implementation.MsalToken;
-import com.azure.identity.implementation.util.IdentityConstants;
-import com.azure.identity.implementation.util.ScopeUtil;
-import com.microsoft.aad.msal4j.IAuthenticationResult;
-import com.microsoft.azure.toolkit.lib.auth.MasterTokenCredential;
 import com.microsoft.azure.toolkit.lib.auth.core.refresktoken.RefreshTokenAccount;
-import com.microsoft.azure.toolkit.lib.auth.core.refresktoken.RefreshTokenMasterTokenCredential;
 import com.microsoft.azure.toolkit.lib.auth.exception.LoginFailureException;
 import com.microsoft.azure.toolkit.lib.auth.model.AuthMethod;
 import com.microsoft.azure.toolkit.lib.auth.util.AzureEnvironmentUtils;
-import com.microsoft.azure.toolkit.lib.auth.Account;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import me.alexpanov.net.FreePortFinder;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.reflect.FieldUtils;
+import reactor.core.publisher.Mono;
 
 import javax.annotation.Nonnull;
 import java.awt.*;
@@ -44,8 +33,8 @@ public class OAuthAccount extends RefreshTokenAccount {
     }
 
     @Override
-    protected boolean checkAvailable() {
-        return isBrowserAvailable();
+    protected Mono<Boolean> checkAvailableInner() {
+        return Mono.just(isBrowserAvailable());
     }
 
     @Override

@@ -5,25 +5,17 @@
 
 package com.microsoft.azure.toolkit.lib.auth.core.visualstudio;
 
-import com.azure.core.credential.AccessToken;
-import com.azure.core.credential.TokenRequestContext;
 import com.azure.core.management.AzureEnvironment;
 import com.azure.identity.SharedTokenCacheCredential;
 import com.azure.identity.SharedTokenCacheCredentialBuilder;
 import com.azure.identity.implementation.IdentityClient;
-import com.azure.identity.implementation.MsalToken;
 import com.azure.identity.implementation.SynchronizedAccessor;
-import com.azure.identity.implementation.util.ScopeUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.microsoft.aad.msal4j.IAuthenticationResult;
 import com.microsoft.aad.msal4j.PublicClientApplication;
 import com.microsoft.aad.msal4j.TokenCache;
-import com.microsoft.azure.toolkit.lib.auth.Account;
-import com.microsoft.azure.toolkit.lib.auth.MasterTokenCredential;
 import com.microsoft.azure.toolkit.lib.auth.core.refresktoken.RefreshTokenAccount;
-import com.microsoft.azure.toolkit.lib.auth.core.refresktoken.RefreshTokenMasterTokenCredential;
 import com.microsoft.azure.toolkit.lib.auth.exception.AzureToolkitAuthenticationException;
 import com.microsoft.azure.toolkit.lib.auth.exception.LoginFailureException;
 import com.microsoft.azure.toolkit.lib.auth.model.AuthMethod;

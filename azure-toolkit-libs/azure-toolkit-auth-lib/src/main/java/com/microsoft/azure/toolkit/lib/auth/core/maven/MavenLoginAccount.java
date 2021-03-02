@@ -5,18 +5,12 @@
 
 package com.microsoft.azure.toolkit.lib.auth.core.maven;
 import com.azure.core.management.AzureEnvironment;
-import com.azure.identity.implementation.util.IdentityConstants;
-import com.microsoft.azure.toolkit.lib.auth.Account;
-import com.microsoft.azure.toolkit.lib.auth.MasterTokenCredential;
 import com.microsoft.azure.toolkit.lib.auth.core.refresktoken.RefreshTokenAccount;
-import com.microsoft.azure.toolkit.lib.auth.core.refresktoken.RefreshTokenMasterTokenCredential;
 import com.microsoft.azure.toolkit.lib.auth.exception.LoginFailureException;
 import com.microsoft.azure.toolkit.lib.auth.model.AuthMethod;
 import com.microsoft.azure.toolkit.lib.auth.util.AzureEnvironmentUtils;
-import com.nimbusds.oauth2.sdk.token.RefreshToken;
 import lombok.Getter;
 import org.apache.commons.lang3.ObjectUtils;
-import org.apache.commons.lang3.StringUtils;
 
 import java.io.IOException;
 import java.util.Collections;

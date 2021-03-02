@@ -12,6 +12,7 @@ import com.microsoft.azure.toolkit.lib.auth.model.AzureCliSubscriptionEntity;
 import com.microsoft.azure.toolkit.lib.auth.model.SubscriptionEntity;
 import com.microsoft.azure.toolkit.lib.auth.util.AzureCliUtils;
 import lombok.Getter;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -20,16 +21,15 @@ public class AzureCliAccount extends Account {
     @Getter
     private final AuthMethod method = AuthMethod.AZURE_CLI;
 
-    protected boolean checkAvailable() {
+    protected Mono<Boolean> checkAvailableInner() {
         try {
             if (!AzureCliUtils.checkCliVersion()) {
-                return false;
+                return Mono.just(false);
             }
             AzureCliUtils.executeAzCommandJson("az account get-access-token --output json");
-            return true;
+            return Mono.just(true);
         } catch (Throwable ex) {
-            this.entity.setLastError(ex);
-            return false;
+            return Mono.error(ex);
         }
     }
 
@@ -47,7 +47,7 @@ public class AzureCliAccount extends Account {
 
         this.entity.setEmail(defaultSubscription.getEmail());
 
-        AzureCliMasterTokenCredential azureCliCredential = new AzureCliMasterTokenCredential(defaultSubscription.getEnvironment());
+        AzureCliTokenCredential azureCliCredential = new AzureCliTokenCredential(defaultSubscription.getEnvironment());
 
         verifyTokenCredential(azureCliCredential.getEnvironment(), azureCliCredential);
 

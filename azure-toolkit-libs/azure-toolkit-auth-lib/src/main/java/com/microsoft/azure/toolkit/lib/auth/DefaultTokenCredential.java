@@ -13,7 +13,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.Objects;
 
-public class DefaultTokenCredential extends MasterTokenCredential {
+public class DefaultTokenCredential extends BaseTokenCredential {
     private TokenCredential onBehalfOf;
 
     public DefaultTokenCredential(AzureEnvironment environment, TokenCredential onBehalfOf) {

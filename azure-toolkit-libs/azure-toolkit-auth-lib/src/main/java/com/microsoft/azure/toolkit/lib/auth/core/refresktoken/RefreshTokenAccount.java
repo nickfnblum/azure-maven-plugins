@@ -14,12 +14,12 @@ import com.azure.identity.implementation.util.IdentityConstants;
 import com.azure.identity.implementation.util.ScopeUtil;
 import com.microsoft.aad.msal4j.IAuthenticationResult;
 import com.microsoft.azure.toolkit.lib.auth.Account;
-import com.microsoft.azure.toolkit.lib.auth.MasterTokenCredential;
+import com.microsoft.azure.toolkit.lib.auth.BaseTokenCredential;
 import com.microsoft.azure.toolkit.lib.auth.exception.LoginFailureException;
-import com.microsoft.azure.toolkit.lib.auth.util.AzureEnvironmentUtils;
 import lombok.Getter;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.reflect.FieldUtils;
+import reactor.core.publisher.Mono;
 
 public abstract class RefreshTokenAccount extends Account {
     @Getter
@@ -31,14 +31,11 @@ public abstract class RefreshTokenAccount extends Account {
 
     protected abstract void initializeRefreshToken();
 
-    protected boolean checkAvailable() {
-        try {
+    protected Mono<Boolean> checkAvailableInner() {
+        return Mono.fromCallable(() -> {
             initializeRefreshToken();
             return StringUtils.isNotEmpty(refreshToken);
-        } catch (Throwable ex) {
-            this.entity.setLastError(ex);
-            return false;
-        }
+        });
     }
 
     @Override
@@ -69,8 +66,8 @@ public abstract class RefreshTokenAccount extends Account {
     }
 
     private void initializeFromRefreshToken(String refreshToken) {
-        MasterTokenCredential refreshTokenCredential =
-                new RefreshTokenMasterTokenCredential(environment, clientId, refreshToken);
+        BaseTokenCredential refreshTokenCredential =
+                new RefreshTokenTokenCredential(environment, clientId, refreshToken);
         entity.setCredential(refreshTokenCredential);
     }
 

@@ -26,6 +26,7 @@ import lombok.Getter;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
+import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -43,7 +44,13 @@ public abstract class Account {
     }
 
     public abstract AuthMethod getMethod();
-    protected abstract boolean checkAvailable();
+
+    protected abstract Mono<Boolean> checkAvailableInner();
+
+    boolean checkAvailable() {
+        checkAvailableInner().doOnSuccess(avail -> this.entity.setAvailable(avail)).onErrorContinue((e, i) -> this.entity.setLastError(e)).block();
+        return isAvailable();
+    }
 
     protected abstract void initializeCredentials() throws LoginFailureException;
 
@@ -55,7 +62,7 @@ public abstract class Account {
         if (StringUtils.isBlank(tenantId)) {
             return this.entity.getCredential();
         } else {
-            return this.entity.getCredential().createRelatedTokenCredential(tenantId);
+            return this.entity.getCredential().createTenantTokenCredential(tenantId);
         }
     }
 
@@ -68,7 +75,7 @@ public abstract class Account {
         return getTokenCredential(subscriptionEntity.getTenantId());
     }
 
-    public AzureTokenCredentials getTokenCredentialV1ForSubscription(String subscriptionId) throws LoginFailureException {
+    public AzureTokenCredentials getTokenCredentialV1ForSubscription(String subscriptionId) {
         SubscriptionEntity subscriptionEntity = getSubscriptionById(subscriptionId);
         return getTokenCredentialV1(subscriptionEntity.getTenantId());
     }
@@ -144,7 +151,7 @@ public abstract class Account {
     }
 
     protected void initializeTenants() {
-        TokenCredential credential = entity.getCredential().createRelatedTokenCredential(null);
+        TokenCredential credential = entity.getCredential().createTenantTokenCredential(null);
         List<String> allTenantIds = listTenantIds(entity.getCredential().getEnvironment(), credential);
         // in azure cli, the tenant ids from 'az account list' should be less/equal than the list tenant api
         if (this.entity.getTenantIds() == null) {
@@ -169,7 +176,6 @@ public abstract class Account {
     private void createAccountEntity(AuthMethod method) {
         this.entity = new AccountEntity();
         entity.setMethod(method);
-        entity.setAvailable(checkAvailable());
     }
 
     private void selectSubscriptions(List<SubscriptionEntity> subscriptions, List<String> subscriptionIds) {
@@ -179,13 +185,13 @@ public abstract class Account {
         }
     }
 
-    private List<SubscriptionEntity> listSubscriptions(List<String> tenantIds, MasterTokenCredential credential) {
+    private List<SubscriptionEntity> listSubscriptions(List<String> tenantIds, BaseTokenCredential credential) {
         AzureProfile azureProfile = new AzureProfile(credential.getEnvironment());
         // use map to re-dup subs
         final Map<String, SubscriptionEntity> subscriptionMap = new HashMap<>();
         tenantIds.parallelStream().forEach(tenantId -> {
             try {
-                TokenCredential tenantTokenCredential = credential.createRelatedTokenCredential(tenantId);
+                TokenCredential tenantTokenCredential = credential.createTenantTokenCredential(tenantId);
                 List<SubscriptionEntity> subscriptionsOnTenant =
                         AzureResourceManager.authenticate(tenantTokenCredential, azureProfile).subscriptions().list()
                                 .mapPage(s -> this.toSubscriptionEntity(tenantId, s)).stream().collect(Collectors.toList());

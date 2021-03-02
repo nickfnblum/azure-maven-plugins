@@ -15,9 +15,11 @@ import com.microsoft.azure.toolkit.lib.auth.exception.LoginFailureException;
 import com.microsoft.azure.toolkit.lib.auth.model.AuthConfiguration;
 import com.microsoft.azure.toolkit.lib.auth.model.AuthMethod;
 import com.microsoft.azure.toolkit.lib.auth.util.AzureEnvironmentUtils;
+import com.microsoft.azure.toolkit.lib.auth.util.ValidationUtil;
 import lombok.Getter;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
+import reactor.core.publisher.Mono;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
@@ -34,8 +36,9 @@ public class ServicePrincipalAccount extends Account {
     }
 
     @Override
-    public boolean checkAvailable() {
+    protected Mono<Boolean> checkAvailableInner() {
         try {
+            ValidationUtil.validateAuthConfiguration(configuration);
             AzureEnvironmentUtils.setupAzureEnvironment(configuration.getEnvironment());
             clientSecretCredential = StringUtils.isNotBlank(configuration.getCertificate()) ?
                     new ClientCertificateCredentialBuilder().clientId(configuration.getClient())
@@ -43,17 +46,17 @@ public class ServicePrincipalAccount extends Account {
                             .tenantId(configuration.getTenant()).build()
                     : new ClientSecretCredentialBuilder().clientId(configuration.getClient())
                     .clientSecret(configuration.getKey()).tenantId(configuration.getTenant()).build();
-            verifyTokenCredential(ObjectUtils.firstNonNull(configuration.getEnvironment(), AzureEnvironment.AZURE), clientSecretCredential);
-            return true;
+
+            return Mono.just(true);
         } catch (Throwable ex) {
-            this.entity.setLastError(ex);
-            return false;
+            return Mono.error(ex);
         }
     }
 
     @Override
-    public void initializeCredentials() throws LoginFailureException {
+    protected void initializeCredentials() throws LoginFailureException {
         this.entity.setEnvironment(ObjectUtils.firstNonNull(configuration.getEnvironment(), AzureEnvironment.AZURE));
+        verifyTokenCredential(ObjectUtils.firstNonNull(configuration.getEnvironment(), AzureEnvironment.AZURE), clientSecretCredential);
         this.entity.setCredential(new DefaultTokenCredential(this.entity.getEnvironment(), clientSecretCredential));
     }
 }

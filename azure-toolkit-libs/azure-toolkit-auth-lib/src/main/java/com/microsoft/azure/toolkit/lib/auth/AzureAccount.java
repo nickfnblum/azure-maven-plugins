@@ -50,12 +50,12 @@ public class AzureAccount implements AzureService {
     }
 
     public List<Account> accounts() {
-        return buildAccountMap(AzureEnvironment.AZURE).values().stream().collect(Collectors.toList());
+        return buildAccountMap(null).values().stream().filter(Account::checkAvailable).collect(Collectors.toList());
     }
 
     public AzureAccount login(@Nonnull Account targetAccount) throws LoginFailureException {
         account = targetAccount;
-        if (account.isAvailable()) {
+        if (account.checkAvailable()) {
             account.authenticate();
         } else {
             if (account.entity.getLastError() != null) {
@@ -76,7 +76,6 @@ public class AzureAccount implements AzureService {
 
     public void login(@Nonnull AuthConfiguration auth) throws LoginFailureException {
         // update the env state of AzureAccount when auth configuration has a strong configuration of env
-        AzureEnvironment environment = ObjectUtils.firstNonNull(auth.getEnvironment(), AzureEnvironment.AZURE);
         Objects.requireNonNull(auth, "Null auth configuration is illegal for login.");
         loginWithAuthConfiguration(auth);
         if (auth.getEnvironment() != null && this.account.getEnvironment() != null
@@ -133,14 +132,10 @@ public class AzureAccount implements AzureService {
         boolean isSPConfigurationPresent = !StringUtils.isAllBlank(auth.getCertificate(), auth.getKey(),
                 auth.getCertificatePassword());
         try {
-            ValidationUtil.validateAuthConfiguration(auth);
             ServicePrincipalAccount spAccount = new ServicePrincipalAccount(auth);
-            if (!spAccount.isAvailable()) {
-                return false;
-            }
             login(spAccount);
             return spAccount.isAuthenticated();
-        } catch (InvalidConfigurationException | LoginFailureException | AzureToolkitAuthenticationException e) {
+        } catch (LoginFailureException | AzureToolkitAuthenticationException e) {
             if (forceServicePrincipalLogin) {
                 throw new LoginFailureException(e.getMessage(), e);
             }
