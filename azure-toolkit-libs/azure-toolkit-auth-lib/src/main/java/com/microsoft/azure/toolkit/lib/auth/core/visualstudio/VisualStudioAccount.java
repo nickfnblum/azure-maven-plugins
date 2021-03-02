@@ -39,7 +39,7 @@ public class VisualStudioAccount extends RefreshTokenAccount {
     @Getter
     private final AuthMethod method = AuthMethod.VISUAL_STUDIO;
 
-    private Optional<Pair<AzureEnvironment, CachedAccountEntity>> vsAccount;
+    private Pair<AzureEnvironment, CachedAccountEntity> vsAccount;
 
     public VisualStudioAccount(@Nonnull AzureEnvironment environment) {
         this.environment = environment;
@@ -50,7 +50,7 @@ public class VisualStudioAccount extends RefreshTokenAccount {
     protected void initializeRefreshToken() {
         try {
             loadVisualStudioAccounts();
-            if (vsAccount.isPresent()) {
+            if (vsAccount != null) {
                 refreshToken = "dummy";
             }
         } catch (IllegalAccessException | JsonProcessingException | ExecutionException | InterruptedException e) {
@@ -60,12 +60,12 @@ public class VisualStudioAccount extends RefreshTokenAccount {
 
     @Override
     public void initializeCredentials() throws LoginFailureException {
-        environment = vsAccount.get().getKey();
+        environment = vsAccount.getKey();
         entity.setEnvironment(environment);
         AzureEnvironmentUtils.setupAzureEnvironment(environment);
         SharedTokenCacheCredential vsCredential = new SharedTokenCacheCredentialBuilder().clientId(VISUAL_STUDIO_CLIENT_ID)
                 .username(entity.getEmail()).build();
-        verifyTokenCredential(vsAccount.get().getKey(), vsCredential);
+        verifyTokenCredential(vsAccount.getKey(), vsCredential);
         super.initializeFromTokenCredential(vsCredential);
     }
 
@@ -84,7 +84,7 @@ public class VisualStudioAccount extends RefreshTokenAccount {
         final Map<String, CachedAccountEntity> accountMap = Utils.groupByIgnoreDuplicate(
                 tokenCacheEntity.getAccounts().values(), CachedAccountEntity::getHomeAccountId);
         Set<Pair<AzureEnvironment, CachedAccountEntity>> sharedAccounts = new HashSet<>();
-        tokenCacheEntity.getAccessTokens().values().stream().forEach(refreshTokenCache -> {
+        tokenCacheEntity.getAccessTokens().values().forEach(refreshTokenCache -> {
             if (StringUtils.equalsIgnoreCase(refreshTokenCache.getClientId(), VISUAL_STUDIO_CLIENT_ID)) {
                 CachedAccountEntity accountCache = accountMap.get(refreshTokenCache.getHomeAccountId());
                 Optional<String> envKey = envEndpoints.keySet().stream().filter(q -> refreshTokenCache.getTarget().startsWith(q)).findFirst();
@@ -100,11 +100,11 @@ public class VisualStudioAccount extends RefreshTokenAccount {
 
         // where there are multiple accounts, we will prefer azure global accounts
         vsAccount = sharedAccounts.stream()
-                .filter(accountInCache -> accountInCache.getKey() == AzureEnvironment.AZURE).findFirst();
+                .filter(accountInCache -> accountInCache.getKey() == AzureEnvironment.AZURE).findFirst().orElse(null);
         // TODO: add username in AuthConfiguration for selecting accounts in Visual Studio credentials
-        if (!vsAccount.isPresent()) {
+        if (vsAccount != null) {
             // where there are multiple non-global accounts, select any of them
-            vsAccount = sharedAccounts.stream().findFirst();
+            vsAccount = sharedAccounts.stream().findFirst().orElse(null);
         }
     }
 

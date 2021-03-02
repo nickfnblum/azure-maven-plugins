@@ -194,7 +194,7 @@ public abstract class Account {
                 TokenCredential tenantTokenCredential = credential.createTenantTokenCredential(tenantId);
                 List<SubscriptionEntity> subscriptionsOnTenant =
                         AzureResourceManager.authenticate(tenantTokenCredential, azureProfile).subscriptions().list()
-                                .mapPage(s -> this.toSubscriptionEntity(tenantId, s)).stream().collect(Collectors.toList());
+                                .mapPage(s -> toSubscriptionEntity(tenantId, s)).stream().collect(Collectors.toList());
 
                 for (SubscriptionEntity subscriptionEntity : subscriptionsOnTenant) {
                     String key = StringUtils.lowerCase(subscriptionEntity.getId());

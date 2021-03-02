@@ -14,8 +14,7 @@ import reactor.core.publisher.Mono;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-
-public class CachedTokenCredential implements TokenCredential {
+class CachedTokenCredential implements TokenCredential {
     private final TokenCredential tokenCredential;
     private final Map<String, AccessToken> accessTokenCache = new ConcurrentHashMap<>();
 
