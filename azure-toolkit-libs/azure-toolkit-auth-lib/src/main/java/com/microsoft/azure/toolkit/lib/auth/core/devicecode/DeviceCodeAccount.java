@@ -19,13 +19,11 @@ import org.apache.commons.lang3.StringUtils;
 import javax.annotation.Nonnull;
 
 public class DeviceCodeAccount extends RefreshTokenAccount {
-    private static final String AZURE_TOOLKIT_CLIENT_ID = "777acee8-5286-4d6e-8b05-f7c851d8ed0a";
     @Getter
     private final AuthMethod method = AuthMethod.DEVICE_CODE;
 
     public DeviceCodeAccount(@Nonnull AzureEnvironment environment) {
         this.environment = environment;
-        clientId = AZURE_TOOLKIT_CLIENT_ID;
     }
 
     @Override
@@ -37,7 +35,7 @@ public class DeviceCodeAccount extends RefreshTokenAccount {
     @Override
     protected void initializeCredentials() throws LoginFailureException {
         AzureEnvironmentUtils.setupAzureEnvironment(environment);
-        DeviceCodeCredential deviceCodeCredential = new DeviceCodeCredentialBuilder().clientId(AZURE_TOOLKIT_CLIENT_ID)
+        DeviceCodeCredential deviceCodeCredential = new DeviceCodeCredentialBuilder().clientId(clientId)
                 .challengeConsumer(challenge -> System.out.println(StringUtils.replace(challenge.getMessage(), challenge.getUserCode(),
                         TextUtils.cyan(challenge.getUserCode())))).build();
 

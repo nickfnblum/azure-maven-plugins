@@ -36,7 +36,7 @@ public class MavenLoginAccount extends RefreshTokenAccount {
     @Override
     protected void initializeCredentials() throws LoginFailureException {
         String envString = mavenCredentials.getEnvironment();
-        AzureEnvironment environment = ObjectUtils.firstNonNull(AzureEnvironmentUtils.stringToAzureEnvironment(envString), AzureEnvironment.AZURE);
+        environment = ObjectUtils.firstNonNull(AzureEnvironmentUtils.stringToAzureEnvironment(envString), AzureEnvironment.AZURE);
         entity.setEnvironment(environment);
         entity.setSelectedSubscriptionIds(Collections.singletonList(mavenCredentials.getDefaultSubscription()));
         if (mavenCredentials.getUserInfo() != null) {

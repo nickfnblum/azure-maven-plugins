@@ -102,7 +102,7 @@ public class VisualStudioAccount extends RefreshTokenAccount {
         vsAccount = sharedAccounts.stream()
                 .filter(accountInCache -> accountInCache.getKey() == AzureEnvironment.AZURE).findFirst().orElse(null);
         // TODO: add username in AuthConfiguration for selecting accounts in Visual Studio credentials
-        if (vsAccount != null) {
+        if (vsAccount == null) {
             // where there are multiple non-global accounts, select any of them
             vsAccount = sharedAccounts.stream().findFirst().orElse(null);
         }
