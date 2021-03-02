@@ -33,7 +33,8 @@ public class ServicePrincipalAccount extends Account {
         this.configuration = authConfiguration;
     }
 
-    public boolean isAvailable() {
+    @Override
+    public boolean checkAvailable() {
         try {
             AzureEnvironmentUtils.setupAzureEnvironment(configuration.getEnvironment());
             clientSecretCredential = StringUtils.isNotBlank(configuration.getCertificate()) ?
@@ -42,6 +43,7 @@ public class ServicePrincipalAccount extends Account {
                             .tenantId(configuration.getTenant()).build()
                     : new ClientSecretCredentialBuilder().clientId(configuration.getClient())
                     .clientSecret(configuration.getKey()).tenantId(configuration.getTenant()).build();
+            verifyTokenCredential(ObjectUtils.firstNonNull(configuration.getEnvironment(), AzureEnvironment.AZURE), clientSecretCredential);
             return true;
         } catch (Throwable ex) {
             this.entity.setLastError(ex);

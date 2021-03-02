@@ -39,12 +39,13 @@ public abstract class Account {
     protected AccountEntity entity;
 
     public Account() {
-        this.entity = buildAccountEntity();
+        buildAccountEntity();
     }
 
     public abstract AuthMethod getMethod();
+    protected abstract boolean checkAvailable();
 
-    public abstract void initializeCredentials() throws LoginFailureException;
+    protected abstract void initializeCredentials() throws LoginFailureException;
 
     public AzureEnvironment getEnvironment() {
         return entity == null ? null : entity.getEnvironment();
@@ -119,18 +120,17 @@ public abstract class Account {
         }
     }
 
-    protected AccountEntity buildAccountEntity() {
-        entity = createAccountEntity(getMethod());
+    List<String> listTenantIds(AzureEnvironment environment, TokenCredential credential) {
+        return AzureResourceManager.authenticate(credential
+                , new AzureProfile(environment)).tenants().list().stream().map(Tenant::tenantId).collect(Collectors.toList());
+    }
+
+    protected void buildAccountEntity() {
         try {
-            if (!entity.isAvailable()) {
-                return entity;
-            }
-            entity.setAvailable(true);
-            return entity;
+            createAccountEntity(getMethod());
         } catch (AzureToolkitAuthenticationException e) {
             entity.setLastError(e);
         }
-        return entity;
     }
 
     protected void verifyTokenCredential(AzureEnvironment environment, TokenCredential credential) throws LoginFailureException {
@@ -143,10 +143,9 @@ public abstract class Account {
         }
     }
 
-    protected void initializeTenants() throws LoginFailureException {
-        MasterTokenCredential credential = entity.getCredential();
-        verifyTokenCredential(credential.getEnvironment(), entity.getCredential());
-        List<String> allTenantIds = listTenantIds(credential.getEnvironment(), credential);
+    protected void initializeTenants() {
+        TokenCredential credential = entity.getCredential().createRelatedTokenCredential(null);
+        List<String> allTenantIds = listTenantIds(entity.getCredential().getEnvironment(), credential);
         // in azure cli, the tenant ids from 'az account list' should be less/equal than the list tenant api
         if (this.entity.getTenantIds() == null) {
             this.entity.setTenantIds(allTenantIds);
@@ -160,11 +159,6 @@ public abstract class Account {
         selectSubscriptions(subscriptions, this.entity.getSelectedSubscriptionIds());
     }
 
-    List<String> listTenantIds(AzureEnvironment environment, TokenCredential credential) {
-        return AzureResourceManager.authenticate(credential
-                , new AzureProfile(environment)).tenants().list().stream().map(Tenant::tenantId).collect(Collectors.toList());
-    }
-
     private SubscriptionEntity getSubscriptionById(String subscriptionId) {
         return getSubscriptions().stream()
                 .filter(s -> StringUtils.equalsIgnoreCase(subscriptionId, s.getId()))
@@ -172,10 +166,10 @@ public abstract class Account {
                 .orElseThrow(() -> new IllegalArgumentException(String.format("Cannot find subscription with id '%s'", subscriptionId)));
     }
 
-    private AccountEntity createAccountEntity(AuthMethod method) {
-        AccountEntity accountEntity = new AccountEntity();
-        accountEntity.setMethod(method);
-        return accountEntity;
+    private void createAccountEntity(AuthMethod method) {
+        this.entity = new AccountEntity();
+        entity.setMethod(method);
+        entity.setAvailable(checkAvailable());
     }
 
     private void selectSubscriptions(List<SubscriptionEntity> subscriptions, List<String> subscriptionIds) {

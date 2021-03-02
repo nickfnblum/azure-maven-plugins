@@ -20,12 +20,12 @@ public class AzureCliAccount extends Account {
     @Getter
     private final AuthMethod method = AuthMethod.AZURE_CLI;
 
-    public boolean isAvailable() {
+    protected boolean checkAvailable() {
         try {
             if (!AzureCliUtils.checkCliVersion()) {
                 return false;
             }
-            AzureCliUtils.executeAzCommandJson("az account show  --output json");
+            AzureCliUtils.executeAzCommandJson("az account get-access-token --output json");
             return true;
         } catch (Throwable ex) {
             this.entity.setLastError(ex);
@@ -34,7 +34,7 @@ public class AzureCliAccount extends Account {
     }
 
     @Override
-    public void initializeCredentials() throws LoginFailureException {
+    protected void initializeCredentials() throws LoginFailureException {
         List<AzureCliSubscriptionEntity> subscriptions = AzureCliUtils.listSubscriptions();
         if (subscriptions.isEmpty()) {
             throw new LoginFailureException("Cannot find any subscriptions in current account.");

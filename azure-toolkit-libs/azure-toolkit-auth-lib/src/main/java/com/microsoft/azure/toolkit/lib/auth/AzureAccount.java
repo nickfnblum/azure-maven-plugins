@@ -57,6 +57,12 @@ public class AzureAccount implements AzureService {
         account = targetAccount;
         if (account.isAvailable()) {
             account.authenticate();
+        } else {
+            if (account.entity.getLastError() != null) {
+                throw new LoginFailureException(account.entity.getLastError().getMessage(), account.entity.getLastError());
+            } else {
+                throw new LoginFailureException(String.format("Cannot get credential from auth method '%s'.", targetAccount.getMethod()));
+            }
         }
         return this;
     }
@@ -68,15 +74,10 @@ public class AzureAccount implements AzureService {
         return this;
     }
 
-    public Account servicePrincipalAccount(AuthConfiguration config) {
-        return null;
-    }
-
     public void login(@Nonnull AuthConfiguration auth) throws LoginFailureException {
         // update the env state of AzureAccount when auth configuration has a strong configuration of env
         AzureEnvironment environment = ObjectUtils.firstNonNull(auth.getEnvironment(), AzureEnvironment.AZURE);
         Objects.requireNonNull(auth, "Null auth configuration is illegal for login.");
-        AzureEnvironmentUtils.setupAzureEnvironment(auth.getEnvironment());
         loginWithAuthConfiguration(auth);
         if (auth.getEnvironment() != null && this.account.getEnvironment() != null
                 && this.account.getEnvironment() != auth.getEnvironment()
@@ -113,7 +114,6 @@ public class AzureAccount implements AzureService {
     private void loginWithAuthConfiguration(@Nonnull AuthConfiguration auth) throws LoginFailureException {
         Objects.requireNonNull(auth, "Null 'auth' cannot be used to sign-in.");
         Objects.requireNonNull(auth.getType(), "Please specify auth type in auth configuration.");
-        AzureEnvironmentUtils.setupAzureEnvironment(auth.getEnvironment());
         Map<AuthType, Account> accountByType = buildAccountMap(auth.getEnvironment());
         if (auth.getType() == AuthType.SERVICE_PRINCIPAL || auth.getType() == AuthType.AUTO) {
             if (loginServicePrincipal(auth)) {
