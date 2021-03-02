@@ -28,6 +28,6 @@ public abstract class BaseTokenCredential implements TokenCredential {
     protected abstract Mono<AccessToken> getAccessToken(String tenantId, TokenRequestContext request);
 
     public TokenCredential createTenantTokenCredential(String tenantId) {
-        return request -> getAccessToken(tenantId, request);
+        return new CachedTokenCredential(request -> getAccessToken(tenantId, request));
     }
 }
