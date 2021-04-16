@@ -45,6 +45,10 @@ public class AzureAccount implements AzureService, IAzureAccount {
     @Setter(AccessLevel.PRIVATE)
     private Account account;
 
+    @Setter
+    @Getter
+    private boolean enablePersistence = false;
+
     /**
      * @return the current account
      * @throws AzureToolkitAuthenticationException if not initialized
@@ -81,6 +85,10 @@ public class AzureAccount implements AzureService, IAzureAccount {
 
     public AzureAccount login(@Nonnull AuthConfiguration auth, boolean enablePersistence) {
         return blockMonoAndReturnThis(loginAsync(auth, enablePersistence));
+    }
+
+    public AzureAccount login(@Nonnull AccountEntity entity) {
+        return blockMonoAndReturnThis(loginAsync(entity));
     }
 
     public AzureAccount login(@Nonnull AccountEntity entity) {
