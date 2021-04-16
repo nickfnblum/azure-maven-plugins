@@ -5,7 +5,10 @@
 
 package com.microsoft.azure.toolkit.lib.auth;
 
+import com.azure.core.credential.TokenCredential;
 import com.azure.core.management.AzureEnvironment;
+import com.azure.identity.SharedTokenCacheCredentialBuilder;
+import com.azure.identity.TokenCachePersistenceOptions;
 import com.google.common.base.Preconditions;
 import com.microsoft.azure.toolkit.lib.AzureService;
 import com.microsoft.azure.toolkit.lib.account.IAzureAccount;
@@ -15,16 +18,20 @@ import com.microsoft.azure.toolkit.lib.auth.core.oauth.OAuthAccount;
 import com.microsoft.azure.toolkit.lib.auth.core.serviceprincipal.ServicePrincipalAccount;
 import com.microsoft.azure.toolkit.lib.auth.exception.AzureToolkitAuthenticationException;
 import com.microsoft.azure.toolkit.lib.auth.exception.LoginFailureException;
+import com.microsoft.azure.toolkit.lib.auth.model.AccountEntity;
 import com.microsoft.azure.toolkit.lib.auth.model.AuthConfiguration;
 import com.microsoft.azure.toolkit.lib.auth.model.AuthType;
 import com.microsoft.azure.toolkit.lib.auth.util.AzureEnvironmentUtils;
+import io.jsonwebtoken.lang.Collections;
 import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import javax.annotation.Nonnull;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,19 +56,35 @@ public class AzureAccount implements AzureService, IAzureAccount {
 
     public List<Account> accounts() {
         return Flux.fromIterable(buildAccountMap().values()).map(Supplier::get).collectList().block();
-
     }
 
     public AzureAccount login(@Nonnull AuthType type) {
-        return blockMonoAndReturnThis(loginAsync(type));
+        return login(type, false);
     }
 
     public AzureAccount login(@Nonnull Account targetAccount) {
-        return blockMonoAndReturnThis(loginAsync(targetAccount));
+        return login(targetAccount, false);
     }
 
     public AzureAccount login(@Nonnull AuthConfiguration auth) {
-        return blockMonoAndReturnThis(loginAsync(auth));
+        return login(auth, false);
+    }
+
+
+    public AzureAccount login(@Nonnull AuthType type, boolean enablePersistence) {
+        return blockMonoAndReturnThis(loginAsync(type, enablePersistence));
+    }
+
+    public AzureAccount login(@Nonnull Account targetAccount, boolean enablePersistence) {
+        return blockMonoAndReturnThis(loginAsync(targetAccount, enablePersistence));
+    }
+
+    public AzureAccount login(@Nonnull AuthConfiguration auth, boolean enablePersistence) {
+        return blockMonoAndReturnThis(loginAsync(auth, enablePersistence));
+    }
+
+    public AzureAccount login(@Nonnull AccountEntity entity) {
+        return blockMonoAndReturnThis(loginAsync(entity));
     }
 
     public void logout() {
@@ -72,14 +95,82 @@ public class AzureAccount implements AzureService, IAzureAccount {
         }
     }
 
-    public Mono<Account> loginAsync(AuthType type) {
+    public Mono<Account> loginAsync(@Nonnull AccountEntity accountEntity) {
+        Preconditions.checkNotNull(accountEntity.getType(), "Auth type is required for login.");
+        if (Arrays.asList(AuthType.DEVICE_CODE, AuthType.OAUTH2).contains(accountEntity.getType())) {
+            return loginAsync(new AccountWithCache(accountEntity), false);
+        }
+        if (Arrays.asList(AuthType.VSCODE, AuthType.AZURE_CLI).contains(accountEntity.getType())) {
+            AzureCliAccount azureCliAccount = new AzureCliAccount();
+            return azureCliAccount.login().map(ac -> {
+                if (ac.getEnvironment() != accountEntity.getEnvironment()) {
+                    throw new AzureToolkitAuthenticationException(
+                            String.format("you have changed the azure cloud to '%s' for auth type: '%s' since last time you signed in.",
+                                    AzureEnvironmentUtils.getCloudNameForAzureCli(ac.getEnvironment()), accountEntity.getType()));
+                }
+                if (!StringUtils.equalsIgnoreCase(ac.entity.getEmail(), accountEntity.getEmail())) {
+                    throw new AzureToolkitAuthenticationException(
+                            String.format("you have changed the account from '%s' to '%s' since last time you signed in.",
+                                    accountEntity.getEmail(), ac.entity.getEmail()));
+                }
+                return ac;
+            }).doOnSuccess(this::setAccount);
+        }
+        return Mono.error(new AzureToolkitAuthenticationException(String.format("", accountEntity.getType())));
+    }
+
+    static class AccountWithCache extends Account {
+        private final String tenantId;
+
+        public AccountWithCache(@Nonnull AccountEntity accountEntity) {
+            Preconditions.checkNotNull(accountEntity.getEnvironment(), "Azure environment for account entity is required.");
+            Preconditions.checkNotNull(accountEntity.getType(), "Auth type for account entity is required.");
+            Preconditions.checkArgument(!Collections.isEmpty(accountEntity.getTenantIds()),
+                    "At least one tenant id is required.");
+            this.tenantId = accountEntity.getTenantIds().get(0);
+            this.entity = new AccountEntity();
+            this.entity.setClientId(accountEntity.getClientId());
+            this.entity.setType(accountEntity.getType());
+            this.entity.setEmail(accountEntity.getEmail());
+            this.entity.setEnvironment(accountEntity.getEnvironment());
+        }
+        protected Mono<TokenCredentialManager> createTokenCredentialManager() {
+            AzureEnvironment env = this.entity.getEnvironment();
+            return RefreshTokenTokenCredentialManager.createTokenCredentialManager(env, getClientId(), createCredential());
+        }
+
+        private TokenCredential createCredential() {
+            AzureEnvironmentUtils.setupAzureEnvironment(this.entity.getEnvironment());
+            SharedTokenCacheCredentialBuilder builder = new SharedTokenCacheCredentialBuilder();
+            return builder
+                    .tokenCachePersistenceOptions(new TokenCachePersistenceOptions().setName(Constant.TOOLKIT_TOKEN_CACHE_NAME))
+                    .username(this.entity.getEmail()).tenantId(tenantId).clientId(getClientId()).build();
+        }
+
+        @Override
+        public AuthType getAuthType() {
+            return this.entity.getType();
+        }
+
+        @Override
+        protected String getClientId() {
+            return this.entity.getClientId();
+        }
+
+        @Override
+        protected Mono<Boolean> preLoginCheck() {
+            return Mono.just(true);
+        }
+    }
+
+    public Mono<Account> loginAsync(AuthType type, boolean enablePersistence) {
         Objects.requireNonNull(type, "Please specify auth type in auth configuration.");
         AuthConfiguration auth = new AuthConfiguration();
         auth.setType(type);
-        return loginAsync(auth);
+        return loginAsync(auth, enablePersistence);
     }
 
-    public Mono<Account> loginAsync(@Nonnull AuthConfiguration auth) {
+    public Mono<Account> loginAsync(@Nonnull AuthConfiguration auth, boolean enablePersistence) {
         Objects.requireNonNull(auth, "Auth configuration is required for login.");
         Objects.requireNonNull(auth.getType(), "Auth type is required for login.");
         Preconditions.checkArgument(auth.getType() != AuthType.AUTO, "Auth type 'auto' is illegal for login.");
@@ -97,11 +188,12 @@ public class AzureAccount implements AzureService, IAzureAccount {
             targetAccount = accountByType.get(type).get();
         }
 
-        return loginAsync(targetAccount).doOnSuccess(ignore -> checkEnv(targetAccount, auth.getEnvironment()));
+        return loginAsync(targetAccount, enablePersistence).doOnSuccess(ignore -> checkEnv(targetAccount, auth.getEnvironment()));
     }
 
-    public Mono<Account> loginAsync(Account targetAccount) {
+    public Mono<Account> loginAsync(Account targetAccount, boolean enablePersistence) {
         Objects.requireNonNull(targetAccount, "Please specify account to login.");
+        targetAccount.setEnablePersistence(enablePersistence);
         return targetAccount.login().doOnSuccess(this::setAccount);
     }
 
