@@ -8,6 +8,7 @@ import com.azure.core.http.policy.HttpLogDetailLevel;
 import com.azure.core.http.policy.HttpPipelinePolicy;
 import com.azure.core.management.profile.AzureProfile;
 import com.azure.resourcemanager.AzureResourceManager;
+import com.azure.resourcemanager.appservice.AppServiceManager;
 import com.microsoft.azure.toolkit.lib.Azure;
 import com.microsoft.azure.toolkit.lib.AzureConfiguration;
 import com.microsoft.azure.toolkit.lib.AzureService;
@@ -60,12 +61,12 @@ public class AzureAppService extends SubscriptionScoped<AzureAppService> impleme
 
     public IWebApp webapp(WebAppEntity webAppEntity) {
         final String subscriptionId = getSubscriptionFromResourceEntity(webAppEntity);
-        return new WebApp(webAppEntity, getAzureResourceManager(subscriptionId));
+        return new WebApp(webAppEntity, getAppServiceManager(subscriptionId));
     }
 
     public List<IWebApp> webapps() {
         return getSubscriptions().stream()
-                .map(subscription -> getAzureResourceManager(subscription.getId()))
+                .map(subscription -> getAppServiceManager(subscription.getId()))
                 .flatMap(azureResourceManager -> azureResourceManager.webApps().list().stream())
                 .collect(Collectors.toList()).stream()
                 .filter(webAppBasic -> !StringUtils.containsIgnoreCase(webAppBasic.innerModel().kind(), "functionapp")) // Filter out function apps
@@ -92,12 +93,12 @@ public class AzureAppService extends SubscriptionScoped<AzureAppService> impleme
 
     public IAppServicePlan appServicePlan(AppServicePlanEntity appServicePlanEntity) {
         final String subscriptionId = getSubscriptionFromResourceEntity(appServicePlanEntity);
-        return new AppServicePlan(appServicePlanEntity, getAzureResourceManager(subscriptionId));
+        return new AppServicePlan(appServicePlanEntity, getAppServiceManager(subscriptionId));
     }
 
     public List<IAppServicePlan> appServicePlans() {
         return getSubscriptions().stream()
-                .map(subscription -> getAzureResourceManager(subscription.getId()))
+                .map(subscription -> getAppServiceManager(subscription.getId()))
                 .flatMap(azureResourceManager -> azureResourceManager.appServicePlans().list().stream())
                 .collect(Collectors.toList()).stream()
                 .map(appServicePlan -> appServicePlan(appServicePlan.id()))
@@ -118,23 +119,22 @@ public class AzureAppService extends SubscriptionScoped<AzureAppService> impleme
 
     public IWebAppDeploymentSlot deploymentSlot(WebAppDeploymentSlotEntity deploymentSlot) {
         final String subscriptionId = getSubscriptionFromResourceEntity(deploymentSlot);
-        return new WebAppDeploymentSlot(deploymentSlot, getAzureResourceManager(subscriptionId));
+        return new WebAppDeploymentSlot(deploymentSlot, getAppServiceManager(subscriptionId));
     }
 
     // todo: share codes with other library which leverage track2 mgmt sdk
-    @Cacheable(cacheName = "AzureResourceManager", key = "$subscriptionId")
-    public AzureResourceManager getAzureResourceManager(String subscriptionId) {
+    @Cacheable(cacheName = "AppServiceManager", key = "$subscriptionId")
+    public AppServiceManager getAppServiceManager(String subscriptionId) {
         final Account account = Azure.az(AzureAccount.class).account();
         final AzureConfiguration config = Azure.az().config();
         final String userAgent = config.getUserAgent();
         final HttpLogDetailLevel logDetailLevel = config.getLogLevel() == null ?
                 HttpLogDetailLevel.NONE : HttpLogDetailLevel.valueOf(config.getLogLevel().name());
         final AzureProfile azureProfile = new AzureProfile(account.getEnvironment());
-        return AzureResourceManager.configure()
+        return AppServiceManager.configure()
                 .withLogLevel(logDetailLevel)
                 .withPolicy(getUserAgentPolicy(userAgent)) // set user agent with policy
-                .authenticate(account.getTokenCredential(subscriptionId), azureProfile)
-                .withSubscription(subscriptionId);
+                .authenticate(account.getTokenCredential(subscriptionId), azureProfile);
     }
 
     private HttpPipelinePolicy getUserAgentPolicy(String userAgent) {

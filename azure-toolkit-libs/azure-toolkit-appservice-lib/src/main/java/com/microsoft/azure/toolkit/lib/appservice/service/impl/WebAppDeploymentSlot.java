@@ -5,7 +5,7 @@
 package com.microsoft.azure.toolkit.lib.appservice.service.impl;
 
 import com.azure.core.management.exception.ManagementException;
-import com.azure.resourcemanager.AzureResourceManager;
+import com.azure.resourcemanager.appservice.AppServiceManager;
 import com.azure.resourcemanager.appservice.models.DeployOptions;
 import com.azure.resourcemanager.appservice.models.DeploymentSlot;
 import com.azure.resourcemanager.appservice.models.DeploymentSlotBase;
@@ -34,9 +34,9 @@ public class WebAppDeploymentSlot implements IWebAppDeploymentSlot {
     private WebAppDeploymentSlotEntity slotEntity;
 
     private DeploymentSlot deploymentSlotInner;
-    private final AzureResourceManager azureClient;
+    private final AppServiceManager azureClient;
 
-    public WebAppDeploymentSlot(WebAppDeploymentSlotEntity deploymentSlot, AzureResourceManager azureClient) {
+    public WebAppDeploymentSlot(WebAppDeploymentSlotEntity deploymentSlot, AppServiceManager azureClient) {
         this.slotEntity = deploymentSlot;
         this.azureClient = azureClient;
     }

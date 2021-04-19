@@ -4,7 +4,7 @@
  */
 package com.microsoft.azure.toolkit.lib.appservice.service.impl;
 
-import com.azure.resourcemanager.AzureResourceManager;
+import com.azure.resourcemanager.appservice.AppServiceManager;
 import com.microsoft.azure.toolkit.lib.appservice.entity.AppServicePlanEntity;
 import com.microsoft.azure.toolkit.lib.appservice.model.OperatingSystem;
 import com.microsoft.azure.toolkit.lib.appservice.model.PricingTier;
@@ -23,10 +23,10 @@ import java.util.stream.Collectors;
 public class AppServicePlan implements IAppServicePlan {
 
     private AppServicePlanEntity entity;
-    private AzureResourceManager azureClient;
+    private AppServiceManager azureClient;
     private com.azure.resourcemanager.appservice.models.AppServicePlan appServicePlanInner;
 
-    public AppServicePlan(AppServicePlanEntity appServicePlanEntity, AzureResourceManager azureClient) {
+    public AppServicePlan(AppServicePlanEntity appServicePlanEntity, AppServiceManager azureClient) {
         this.entity = appServicePlanEntity;
         this.azureClient = azureClient;
     }

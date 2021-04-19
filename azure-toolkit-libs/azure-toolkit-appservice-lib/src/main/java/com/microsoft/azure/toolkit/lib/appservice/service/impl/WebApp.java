@@ -5,7 +5,7 @@
 package com.microsoft.azure.toolkit.lib.appservice.service.impl;
 
 import com.azure.core.management.exception.ManagementException;
-import com.azure.resourcemanager.AzureResourceManager;
+import com.azure.resourcemanager.appservice.AppServiceManager;
 import com.azure.resourcemanager.appservice.models.AppServicePlan;
 import com.azure.resourcemanager.appservice.models.DeployOptions;
 import com.azure.resourcemanager.appservice.models.WebApp.DefinitionStages;
@@ -40,10 +40,10 @@ public class WebApp implements IWebApp {
     private static final String UNSUPPORTED_OPERATING_SYSTEM = "Unsupported operating system %s";
     private WebAppEntity entity;
 
-    private AzureResourceManager azureClient;
+    private AppServiceManager azureClient;
     private com.azure.resourcemanager.appservice.models.WebApp webAppInner;
 
-    public WebApp(WebAppEntity entity, AzureResourceManager azureClient) {
+    public WebApp(WebAppEntity entity, AppServiceManager azureClient) {
         this.entity = entity;
         this.azureClient = azureClient;
     }
@@ -182,7 +182,7 @@ public class WebApp implements IWebApp {
             final DefinitionStages.Blank blank = WebApp.this.azureClient.webApps().define(getName());
             final Runtime runtime = getRuntime();
             final AppServicePlan appServicePlan = AppServiceUtils.getAppServicePlan(getAppServicePlanEntity(), azureClient);
-            final ResourceGroup resourceGroup = WebApp.this.azureClient.resourceGroups().getByName(getResourceGroup());
+            final String resourceGroup = getResourceGroup();
             final DefinitionStages.WithCreate withCreate;
             switch (runtime.getOperatingSystem()) {
                 case LINUX:
@@ -210,7 +210,7 @@ public class WebApp implements IWebApp {
             return WebApp.this;
         }
 
-        DefinitionStages.WithCreate createWindowsWebApp(DefinitionStages.Blank blank, ResourceGroup resourceGroup, AppServicePlan appServicePlan,
+        DefinitionStages.WithCreate createWindowsWebApp(DefinitionStages.Blank blank, String resourceGroup, AppServicePlan appServicePlan,
                                                         Runtime runtime) {
             return (DefinitionStages.WithCreate) blank.withExistingWindowsPlan(appServicePlan)
                 .withExistingResourceGroup(resourceGroup)
@@ -218,14 +218,14 @@ public class WebApp implements IWebApp {
                 .withWebContainer(AppServiceUtils.toWindowsWebContainer(runtime));
         }
 
-        DefinitionStages.WithCreate createLinuxWebApp(DefinitionStages.Blank blank, ResourceGroup resourceGroup, AppServicePlan appServicePlan,
+        DefinitionStages.WithCreate createLinuxWebApp(DefinitionStages.Blank blank, String resourceGroup, AppServicePlan appServicePlan,
                                                       Runtime runtime) {
             return blank.withExistingLinuxPlan(appServicePlan)
                 .withExistingResourceGroup(resourceGroup)
                 .withBuiltInImage(AppServiceUtils.toLinuxRuntimeStack(runtime));
         }
 
-        DefinitionStages.WithCreate createDockerWebApp(DefinitionStages.Blank blank, ResourceGroup resourceGroup, AppServicePlan appServicePlan,
+        DefinitionStages.WithCreate createDockerWebApp(DefinitionStages.Blank blank, String resourceGroup, AppServicePlan appServicePlan,
                                                        DockerConfiguration dockerConfiguration) {
             final DefinitionStages.WithLinuxAppFramework withLinuxAppFramework =
                     blank.withExistingLinuxPlan(appServicePlan).withExistingResourceGroup(resourceGroup);
