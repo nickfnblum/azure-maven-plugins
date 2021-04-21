@@ -13,6 +13,7 @@ import com.microsoft.azure.common.logging.Log;
 import com.microsoft.azure.common.utils.GetHashMac;
 import com.microsoft.azure.toolkit.lib.auth.AzureCloud;
 import com.microsoft.azure.toolkit.lib.auth.core.devicecode.DeviceCodeAccount;
+import com.microsoft.azure.toolkit.lib.auth.exception.InvalidConfigurationException;
 import com.microsoft.azure.toolkit.lib.auth.model.AuthType;
 import com.microsoft.azure.toolkit.lib.common.proxy.ProxyManager;
 import com.microsoft.azure.toolkit.lib.common.utils.TextUtils;
@@ -34,9 +35,7 @@ import com.microsoft.azure.maven.utils.ProxyUtils;
 import com.microsoft.azure.maven.utils.SystemPropertyUtils;
 import com.microsoft.azure.toolkit.lib.auth.Account;
 import com.microsoft.azure.toolkit.lib.auth.AzureAccount;
-import com.microsoft.azure.toolkit.lib.auth.exception.AzureLoginException;
 import com.microsoft.azure.toolkit.lib.auth.exception.AzureToolkitAuthenticationException;
-import com.microsoft.azure.toolkit.lib.auth.exception.LoginFailureException;
 import com.microsoft.azure.toolkit.lib.auth.util.AzureEnvironmentUtils;
 import com.microsoft.azure.toolkit.lib.common.model.Subscription;
 import org.apache.commons.collections4.CollectionUtils;
@@ -108,7 +107,7 @@ public abstract class AbstractAzureMojo extends AbstractMojo implements Telemetr
     protected static final String SUBSCRIPTION_NOT_FOUND = "Subscription %s was not found in current account.";
 
     private static final String INVALID_AZURE_ENVIRONMENT = "Invalid environment string '%s', please replace it with one of " +
-            "\"Azure\", \"AzureChina\", \"AzureGermany\", \"AzureUSGovernment\",.";
+            "\"Azure\", \"AzureChina\", \"AzureGermany\", \"AzureUSGovernment\".";
     private static final String AZURE_ENVIRONMENT = "azureEnvironment";
     private static final String PROXY = "proxy";
 
@@ -211,9 +210,9 @@ public abstract class AbstractAzureMojo extends AbstractMojo implements Telemetr
 
     private TelemetryProxy telemetryProxy;
 
-    private String sessionId = UUID.randomUUID().toString();
+    private final String sessionId = UUID.randomUUID().toString();
 
-    private String installationId = GetHashMac.getHashMac();
+    private final String installationId = GetHashMac.getHashMac();
 
     //endregion
 
@@ -292,7 +291,7 @@ public abstract class AbstractAzureMojo extends AbstractMojo implements Telemetr
         return NumberUtils.toInt(httpProxyPort, 0);
     }
 
-    public Azure getAzureClient() throws AzureAuthFailureException, AzureExecutionException {
+    public Azure getAzureClient() throws AzureAuthFailureException {
         if (azure == null) {
             if (this.authentication != null && (this.authentication.getFile() != null || StringUtils.isNotBlank(authentication.getServerId()))) {
                 // TODO: remove the old way of authentication
@@ -324,12 +323,12 @@ public abstract class AbstractAzureMojo extends AbstractMojo implements Telemetr
                     TextUtils.blue(SubscriptionOption.getSubscriptionName(subscriptions[0]))));
             return subscriptions[0].getId();
         }
-        final List<SubscriptionOption> wrapSubs = Arrays.stream(subscriptions).map(t -> new SubscriptionOption(t))
+        final List<SubscriptionOption> wrapSubs = Arrays.stream(subscriptions).map(SubscriptionOption::new)
                 .sorted()
                 .collect(Collectors.toList());
         final SubscriptionOption defaultValue = wrapSubs.get(0);
         final TextIO textIO = TextIoFactory.getTextIO();
-        final SubscriptionOption subscriptionOptionSelected = new CustomTextIoStringListReader<SubscriptionOption>(() -> textIO.getTextTerminal(), null)
+        final SubscriptionOption subscriptionOptionSelected = new CustomTextIoStringListReader<SubscriptionOption>(textIO::getTextTerminal, null)
                 .withCustomPrompt(String.format("Please choose a subscription%s: ",
                         highlightDefaultValue(defaultValue == null ? null : defaultValue.getSubscriptionName())))
                 .withNumberedPossibleValues(wrapSubs).withDefaultValue(defaultValue).read("Available subscriptions:");
@@ -339,7 +338,7 @@ public abstract class AbstractAzureMojo extends AbstractMojo implements Telemetr
         return subscriptionOptionSelected.getSubscription().getId();
     }
 
-    protected Azure getOrCreateAzureClient() throws AzureAuthFailureException, AzureExecutionException {
+    protected Azure getOrCreateAzureClient() throws AzureAuthFailureException {
         try {
             final Account account = getAzureAccount();
             final List<Subscription> subscriptions = account.getSubscriptions();
@@ -348,12 +347,12 @@ public abstract class AbstractAzureMojo extends AbstractMojo implements Telemetr
             com.microsoft.azure.toolkit.lib.Azure.az(AzureAccount.class).account().selectSubscription(Collections.singletonList(targetSubscriptionId));
             this.subscriptionId = targetSubscriptionId;
             return AzureClientFactory.getAzureClient(getUserAgent(), targetSubscriptionId);
-        } catch (AzureLoginException | IOException e) {
+        } catch (AzureToolkitAuthenticationException | InvalidConfigurationException | MavenDecryptException | AzureExecutionException | IOException e) {
             throw new AzureAuthFailureException(e.getMessage());
         }
     }
 
-    protected Account getAzureAccount() throws MavenDecryptException, AzureExecutionException, LoginFailureException {
+    protected Account getAzureAccount() throws MavenDecryptException, InvalidConfigurationException {
         if (azureAccount == null) {
             final MavenAuthConfiguration mavenAuthConfiguration = auth == null ? new MavenAuthConfiguration() : auth;
             mavenAuthConfiguration.setType(getAuthType());
@@ -380,8 +379,7 @@ public abstract class AbstractAzureMojo extends AbstractMojo implements Telemetr
         return account;
     }
 
-    private static Account accountLogin(@Nonnull com.microsoft.azure.toolkit.lib.auth.model.AuthConfiguration auth) {
-
+    private static void accountLogin(@Nonnull com.microsoft.azure.toolkit.lib.auth.model.AuthConfiguration auth) {
         if (auth.getEnvironment() != null) {
             com.microsoft.azure.toolkit.lib.Azure.az(AzureCloud.class).set(auth.getEnvironment());
         }
@@ -395,26 +393,26 @@ public abstract class AbstractAzureMojo extends AbstractMojo implements Telemetr
                 }
                 // prompt if oauth or device code
                 promptForOAuthOrDeviceCodeLogin(account.getAuthType());
-                return handleDeviceCodeAccount(com.microsoft.azure.toolkit.lib.Azure.az(AzureAccount.class).loginAsync(account, false).block());
+                handleDeviceCodeAccount(com.microsoft.azure.toolkit.lib.Azure.az(AzureAccount.class).loginAsync(account, false).block());
             } else {
                 // user specify SP related configurations
-                return doServicePrincipalLogin(auth);
+                doServicePrincipalLogin(auth);
             }
         } else {
             // user specifies the auth type explicitly
             promptForOAuthOrDeviceCodeLogin(auth.getType());
-            return handleDeviceCodeAccount(com.microsoft.azure.toolkit.lib.Azure.az(AzureAccount.class).loginAsync(auth, false).block());
+            handleDeviceCodeAccount(com.microsoft.azure.toolkit.lib.Azure.az(AzureAccount.class).loginAsync(auth, false).block());
         }
     }
 
-    private static Account handleDeviceCodeAccount(Account account) {
+    private static void handleDeviceCodeAccount(Account account) {
         if (account instanceof DeviceCodeAccount) {
             final DeviceCodeAccount deviceCodeAccount = (DeviceCodeAccount) account;
             final DeviceCodeInfo challenge = deviceCodeAccount.getDeviceCode();
             System.out.println(StringUtils.replace(challenge.getMessage(), challenge.getUserCode(),
                     TextUtils.cyan(challenge.getUserCode())));
         }
-        return account.continueLogin().block();
+        account.continueLogin().block();
     }
 
     private static void promptAzureEnvironment(AzureEnvironment env) {
@@ -442,9 +440,9 @@ public abstract class AbstractAzureMojo extends AbstractMojo implements Telemetr
         return current;
     }
 
-    private static Account doServicePrincipalLogin(com.microsoft.azure.toolkit.lib.auth.model.AuthConfiguration auth) {
+    private static void doServicePrincipalLogin(com.microsoft.azure.toolkit.lib.auth.model.AuthConfiguration auth) {
         auth.setType(AuthType.SERVICE_PRINCIPAL);
-        return com.microsoft.azure.toolkit.lib.Azure.az(AzureAccount.class).login(auth).account();
+        com.microsoft.azure.toolkit.lib.Azure.az(AzureAccount.class).login(auth).account();
     }
 
     private static Mono<Account> checkAccountAvailable(Account account) {
@@ -595,7 +593,7 @@ public abstract class AbstractAzureMojo extends AbstractMojo implements Telemetr
     /**
      * Entry point of sub-class. Sub-class should implement this method to do real work.
      *
-     * @throws AzureExecutionException
+     * @throws AzureExecutionException when encountering any errors
      */
     protected abstract void doExecute() throws AzureExecutionException;
 
@@ -693,7 +691,7 @@ public abstract class AbstractAzureMojo extends AbstractMojo implements Telemetr
         }
     }
 
-    protected class DefaultUncaughtExceptionHandler implements Thread.UncaughtExceptionHandler {
+    protected static class DefaultUncaughtExceptionHandler implements Thread.UncaughtExceptionHandler {
         @Override
         public void uncaughtException(Thread t, Throwable e) {
             Log.debug("uncaughtException: " + e);
@@ -732,7 +730,7 @@ public abstract class AbstractAzureMojo extends AbstractMojo implements Telemetr
         return targetSubscriptionId;
     }
 
-    protected static void checkSubscription(List<Subscription> subscriptions, String targetSubscriptionId) throws AzureLoginException {
+    protected static void checkSubscription(List<Subscription> subscriptions, String targetSubscriptionId) {
         if (StringUtils.isEmpty(targetSubscriptionId)) {
             Log.warn(SUBSCRIPTION_NOT_SPECIFIED);
             return;
@@ -741,7 +739,7 @@ public abstract class AbstractAzureMojo extends AbstractMojo implements Telemetr
                 .filter(subscription -> StringUtils.equals(subscription.getId(), targetSubscriptionId))
                 .findAny();
         if (!optionalSubscription.isPresent()) {
-            throw new AzureLoginException(String.format(SUBSCRIPTION_NOT_FOUND, targetSubscriptionId));
+            throw new AzureToolkitAuthenticationException(String.format(SUBSCRIPTION_NOT_FOUND, targetSubscriptionId));
         }
     }
 

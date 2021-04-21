@@ -15,7 +15,6 @@ import com.microsoft.azure.toolkit.lib.auth.model.AuthType;
 import com.microsoft.azure.toolkit.lib.common.model.Subscription;
 import com.microsoft.azure.toolkit.lib.common.proxy.ProxyManager;
 import com.microsoft.azure.toolkit.lib.auth.exception.AzureToolkitAuthenticationException;
-import com.microsoft.azure.toolkit.lib.auth.exception.LoginFailureException;
 import com.microsoft.azure.toolkit.lib.common.utils.TextUtils;
 import com.microsoft.azure.management.appplatform.v2020_07_01.implementation.AppPlatformManager;
 import com.microsoft.azure.maven.exception.MavenDecryptException;
@@ -176,7 +175,7 @@ public abstract class AbstractMojoBase extends AbstractMojo {
         }
     }
 
-    protected void initExecution() throws MavenDecryptException, AzureExecutionException, LoginFailureException {
+    protected void initExecution() throws MavenDecryptException, com.microsoft.azure.toolkit.lib.auth.exception.InvalidConfigurationException {
         // init proxy manager
         ProxyUtils.initProxy(Optional.ofNullable(this.session).map(MavenSession::getRequest).orElse(null));
         // Init telemetries
@@ -206,8 +205,7 @@ public abstract class AbstractMojoBase extends AbstractMojo {
         return account;
     }
 
-    private static Account accountLogin(@Nonnull com.microsoft.azure.toolkit.lib.auth.model.AuthConfiguration auth) {
-
+    private static void accountLogin(@Nonnull com.microsoft.azure.toolkit.lib.auth.model.AuthConfiguration auth) {
         if (auth.getEnvironment() != null) {
             com.microsoft.azure.toolkit.lib.Azure.az(AzureCloud.class).set(auth.getEnvironment());
         }
@@ -221,26 +219,26 @@ public abstract class AbstractMojoBase extends AbstractMojo {
                 }
                 // prompt if oauth or device code
                 promptForOAuthOrDeviceCodeLogin(account.getAuthType());
-                return handleDeviceCodeAccount(com.microsoft.azure.toolkit.lib.Azure.az(AzureAccount.class).loginAsync(account, false).block());
+                handleDeviceCodeAccount(com.microsoft.azure.toolkit.lib.Azure.az(AzureAccount.class).loginAsync(account, false).block());
             } else {
                 // user specify SP related configurations
-                return doServicePrincipalLogin(auth);
+                doServicePrincipalLogin(auth);
             }
         } else {
             // user specifies the auth type explicitly
             promptForOAuthOrDeviceCodeLogin(auth.getType());
-            return handleDeviceCodeAccount(com.microsoft.azure.toolkit.lib.Azure.az(AzureAccount.class).loginAsync(auth, false).block());
+            handleDeviceCodeAccount(com.microsoft.azure.toolkit.lib.Azure.az(AzureAccount.class).loginAsync(auth, false).block());
         }
     }
 
-    private static Account handleDeviceCodeAccount(Account account) {
+    private static void handleDeviceCodeAccount(Account account) {
         if (account instanceof DeviceCodeAccount) {
             final DeviceCodeAccount deviceCodeAccount = (DeviceCodeAccount) account;
             final DeviceCodeInfo challenge = deviceCodeAccount.getDeviceCode();
             System.out.println(StringUtils.replace(challenge.getMessage(), challenge.getUserCode(),
                     TextUtils.cyan(challenge.getUserCode())));
         }
-        return account.continueLogin().block();
+        account.continueLogin().block();
     }
 
     private static void promptAzureEnvironment(AzureEnvironment env) {
@@ -268,9 +266,9 @@ public abstract class AbstractMojoBase extends AbstractMojo {
         return current;
     }
 
-    private static Account doServicePrincipalLogin(com.microsoft.azure.toolkit.lib.auth.model.AuthConfiguration auth) {
+    private static void doServicePrincipalLogin(com.microsoft.azure.toolkit.lib.auth.model.AuthConfiguration auth) {
         auth.setType(AuthType.SERVICE_PRINCIPAL);
-        return com.microsoft.azure.toolkit.lib.Azure.az(AzureAccount.class).login(auth).account();
+        com.microsoft.azure.toolkit.lib.Azure.az(AzureAccount.class).login(auth).account();
     }
 
     private static Mono<Account> checkAccountAvailable(Account account) {
