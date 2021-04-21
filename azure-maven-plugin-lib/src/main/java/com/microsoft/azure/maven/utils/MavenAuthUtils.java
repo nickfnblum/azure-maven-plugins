@@ -5,7 +5,6 @@
 
 package com.microsoft.azure.maven.utils;
 
-import com.microsoft.azure.common.exceptions.AzureExecutionException;
 import com.microsoft.azure.maven.exception.MavenDecryptException;
 import com.microsoft.azure.maven.model.MavenAuthConfiguration;
 import com.microsoft.azure.toolkit.lib.auth.exception.InvalidConfigurationException;
@@ -27,7 +26,7 @@ public class MavenAuthUtils {
             "\"Azure\", \"AzureChina\", \"AzureGermany\", \"AzureUSGovernment\",.";
 
     public static AuthConfiguration buildAuthConfiguration(MavenSession session, SettingsDecrypter settingsDecrypter, @Nonnull MavenAuthConfiguration auth)
-            throws AzureExecutionException, MavenDecryptException {
+            throws MavenDecryptException, InvalidConfigurationException {
         final String serverId = auth.getServerId();
         final AuthConfiguration authConfiguration;
         try {
@@ -36,7 +35,7 @@ public class MavenAuthUtils {
         } catch (InvalidConfigurationException ex) {
             final String messagePostfix = StringUtils.isNotBlank(serverId) ? ("in server: '" + serverId + "' at maven settings.xml.")
                     : "in <auth> configuration.";
-            throw new AzureExecutionException(String.format("%s %s", ex.getMessage(), messagePostfix));
+            throw new InvalidConfigurationException(String.format("%s %s", ex.getMessage(), messagePostfix));
         }
         return authConfiguration;
     }
