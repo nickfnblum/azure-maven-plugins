@@ -40,7 +40,7 @@ public class WebApp implements IWebApp {
     private static final String UNSUPPORTED_OPERATING_SYSTEM = "Unsupported operating system %s";
     private WebAppEntity entity;
 
-    private AzureResourceManager azureClient;
+    private final AzureResourceManager azureClient;
     private com.azure.resourcemanager.appservice.models.WebApp webAppInner;
 
     public WebApp(WebAppEntity entity, AzureResourceManager azureClient) {
@@ -283,9 +283,6 @@ public class WebApp implements IWebApp {
             }
             final AppServicePlan newPlanServiceModel = AppServiceUtils.getAppServicePlan(newServicePlan, azureClient);
             AppServiceUtils.validateServicePlanWithRuntime(WebApp.this.getRuntime(), newPlanServiceModel);
-            if (newPlanServiceModel == null) {
-                throw new AzureToolkitRuntimeException("Target app service plan not exists");
-            }
             modified = true;
             return update.withExistingAppServicePlan(newPlanServiceModel);
         }

@@ -4,7 +4,6 @@
  */
 package com.microsoft.azure.toolkit.lib.appservice.service.impl;
 
-import com.azure.core.management.exception.ManagementException;
 import com.azure.resourcemanager.AzureResourceManager;
 import com.azure.resourcemanager.appservice.fluent.models.SiteLogsConfigInner;
 import com.azure.resourcemanager.appservice.models.AppServicePlan;
@@ -75,7 +74,7 @@ class AppServiceUtils {
     static RuntimeStack toLinuxRuntimeStack(Runtime runtime) {
         return RuntimeStack.getAll().stream().filter(runtimeStack -> {
             final Runtime stackRuntime = Runtime.getRuntimeFromLinuxFxVersion(runtimeStack.toString());
-            return stackRuntime != null && Objects.equals(stackRuntime.getJavaVersion(), runtime.getJavaVersion()) &&
+            return Objects.equals(stackRuntime.getJavaVersion(), runtime.getJavaVersion()) &&
                 Objects.equals(stackRuntime.getWebContainer(), runtime.getWebContainer());
         }).findFirst().orElse(null);
     }
