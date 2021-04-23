@@ -31,6 +31,7 @@ import com.microsoft.azure.toolkit.lib.appservice.model.PublishingProfile;
 import com.microsoft.azure.toolkit.lib.appservice.model.Runtime;
 import com.microsoft.azure.toolkit.lib.appservice.model.WebContainer;
 import com.microsoft.azure.toolkit.lib.appservice.utils.Utils;
+import com.microsoft.azure.toolkit.lib.common.exception.AzureToolkitRuntimeException;
 import com.microsoft.azure.toolkit.lib.common.model.Region;
 import org.apache.commons.lang3.StringUtils;
 
@@ -187,14 +188,9 @@ class AppServiceUtils {
     }
 
     static AppServicePlan getAppServicePlan(AppServicePlanEntity entity, AzureResourceManager azureClient) {
-        try {
-            return StringUtils.isNotEmpty(entity.getId()) ?
+        return StringUtils.isNotEmpty(entity.getId()) ?
                 azureClient.appServicePlans().getById(entity.getId()) :
                 azureClient.appServicePlans().getByResourceGroup(entity.getResourceGroup(), entity.getName());
-        } catch (ManagementException e) {
-            // SDK will throw exception when resource not founded
-            return null;
-        }
     }
 
 
@@ -260,6 +256,15 @@ class AppServiceUtils {
                     .withFailedRequestTracing(diagnosticConfig.isEnableFailedRequestTracing()).parent();
         } else {
             blank.withoutWebServerLogging().parent();
+        }
+    }
+
+    static void validateServicePlanWithRuntime(Runtime runtime, AppServicePlan servicePlan) {
+        final OperatingSystem os = runtime.getOperatingSystem();
+        if ((servicePlan.operatingSystem() == com.azure.resourcemanager.appservice.models.OperatingSystem.LINUX && os == OperatingSystem.WINDOWS) ||
+                (servicePlan.operatingSystem() == com.azure.resourcemanager.appservice.models.OperatingSystem.WINDOWS && os != OperatingSystem.WINDOWS)) {
+            throw new AzureToolkitRuntimeException(String.format("%s service plan can not be used for %s function",
+                    StringUtils.capitalize(servicePlan.operatingSystem().name()), os.getValue()));
         }
     }
 }

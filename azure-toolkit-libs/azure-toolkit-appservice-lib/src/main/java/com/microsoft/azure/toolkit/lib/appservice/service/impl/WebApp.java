@@ -182,6 +182,7 @@ public class WebApp implements IWebApp {
             final DefinitionStages.Blank blank = WebApp.this.azureClient.webApps().define(getName());
             final Runtime runtime = getRuntime();
             final AppServicePlan appServicePlan = AppServiceUtils.getAppServicePlan(getAppServicePlanEntity(), azureClient);
+            AppServiceUtils.validateServicePlanWithRuntime(runtime, appServicePlan);
             final ResourceGroup resourceGroup = WebApp.this.azureClient.resourceGroups().getByName(getResourceGroup());
             final DefinitionStages.WithCreate withCreate;
             switch (runtime.getOperatingSystem()) {
@@ -281,6 +282,7 @@ public class WebApp implements IWebApp {
                 return update;
             }
             final AppServicePlan newPlanServiceModel = AppServiceUtils.getAppServicePlan(newServicePlan, azureClient);
+            AppServiceUtils.validateServicePlanWithRuntime(WebApp.this.getRuntime(), newPlanServiceModel);
             if (newPlanServiceModel == null) {
                 throw new AzureToolkitRuntimeException("Target app service plan not exists");
             }

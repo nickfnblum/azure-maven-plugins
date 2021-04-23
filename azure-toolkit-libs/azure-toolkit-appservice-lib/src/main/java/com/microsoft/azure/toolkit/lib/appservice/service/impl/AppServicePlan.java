@@ -4,6 +4,7 @@
  */
 package com.microsoft.azure.toolkit.lib.appservice.service.impl;
 
+import com.azure.core.management.exception.ManagementException;
 import com.azure.resourcemanager.AzureResourceManager;
 import com.microsoft.azure.toolkit.lib.appservice.entity.AppServicePlanEntity;
 import com.microsoft.azure.toolkit.lib.appservice.model.OperatingSystem;
@@ -68,7 +69,11 @@ public class AppServicePlan implements IAppServicePlan {
     }
 
     public synchronized void refreshAppServicePlanInner() {
-        appServicePlanInner = AppServiceUtils.getAppServicePlan(entity, azureClient);
+        try {
+            appServicePlanInner = AppServiceUtils.getAppServicePlan(entity, azureClient);
+        } catch (ManagementException e) {
+            // swallow exception as SDK will throw exception when resource not founded
+        }
     }
 
     @Override
