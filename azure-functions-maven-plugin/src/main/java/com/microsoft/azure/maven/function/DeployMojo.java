@@ -50,9 +50,11 @@ import com.microsoft.azure.maven.auth.AzureAuthFailureException;
 import com.microsoft.azure.toolkit.lib.Azure;
 import com.microsoft.azure.toolkit.lib.auth.Account;
 import com.microsoft.azure.toolkit.lib.auth.AzureAccount;
+import com.microsoft.azure.toolkit.lib.common.exception.AzureToolkitRuntimeException;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Validate;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
@@ -96,8 +98,6 @@ public class DeployMojo extends AbstractFunctionMojo {
     private static final String UNKNOWN_DEPLOYMENT_TYPE = "The value of <deploymentType> is unknown, supported values are: " +
             "ftp, zip, msdeploy, run_from_blob and run_from_zip.";
     private static final String APPINSIGHTS_INSTRUMENTATION_KEY = "APPINSIGHTS_INSTRUMENTATIONKEY";
-    private static final String APPLICATION_INSIGHTS_NOT_SUPPORTED = "Application Insights features are not supported with" +
-            " current authentication, skip related steps.";
     private static final String APPLICATION_INSIGHTS_CONFIGURATION_CONFLICT = "Contradictory configurations for application insights," +
             " specify 'appInsightsKey' or 'appInsightsInstance' if you want to enable it, and specify " +
             "'disableAppInsights=true' if you want to disable it.";
@@ -138,6 +138,22 @@ public class DeployMojo extends AbstractFunctionMojo {
             "isn't configured, setting up the default value.";
     private static final String CREATE_NEW_FUNCTION_APP = "isCreateNewFunctionApp";
     private static final String RUNNING = "Running";
+    private static final String APP_NAME_PATTERN = "[a-zA-Z0-9\\-]{2,60}";
+    private static final String RESOURCE_GROUP_PATTERN = "[a-zA-Z0-9._\\-()]{1,90}";
+    private static final String SLOT_NAME_PATTERN = "[A-Za-z0-9-]{1,60}";
+    private static final String APP_SERVICE_PLAN_NAME_PATTERN = "[a-zA-Z0-9\\-]{1,40}";
+    private static final String EMPTY_APP_NAME = "Please config the <appName> in pom.xml.";
+    private static final String INVALID_APP_NAME = "The <appName> only allow alphanumeric characters, hyphens and cannot start or end in a hyphen.";
+    private static final String EMPTY_RESOURCE_GROUP = "Please config the <resourceGroup> in pom.xml.";
+    private static final String INVALID_RESOURCE_GROUP_NAME = "The <resourceGroup> only allow alphanumeric characters, periods, underscores, " +
+            "hyphens and parenthesis and cannot end in a period.";
+    private static final String INVALID_SERVICE_PLAN_NAME = "Invalid value for <appServicePlanName>, it need to match the pattern %s";
+    private static final String INVALID_SERVICE_PLAN_RESOURCE_GROUP_NAME = "Invalid value for <appServicePlanResourceGroup>, " +
+            "it only allow alphanumeric characters, periods, underscores, hyphens and parenthesis and cannot end in a period.";
+    private static final String EMPTY_SLOT_NAME = "Please config the <name> of <deploymentSlot> in pom.xml";
+    private static final String INVALID_SLOT_NAME = "Invalid value of <name> inside <deploymentSlot> in pom.xml, it needs to match the pattern '%s'";
+    private static final String INVALID_REGION = "The value of <region> is not supported, please correct it in pom.xml.";
+    private static final String EMPTY_IMAGE_NAME = "Please config the <image> of <runtime> in pom.xml.";
 
     private JavaVersion parsedJavaVersion;
 
@@ -150,7 +166,7 @@ public class DeployMojo extends AbstractFunctionMojo {
     @Override
     protected void doExecute() throws AzureExecutionException {
         try {
-            validateAppName();
+            validateParameters();
 
             parseConfiguration();
 
@@ -200,6 +216,7 @@ public class DeployMojo extends AbstractFunctionMojo {
     }
 
     protected FunctionApp createFunctionApp(final FunctionRuntimeHandler runtimeHandler) throws AzureAuthFailureException, AzureExecutionException {
+        Validate.isTrue(StringUtils.isNotEmpty(region), "<region> is required when creating new resource");
         Log.info(FUNCTION_APP_CREATE_START);
         getTelemetryProxy().addDefaultProperty(CREATE_NEW_FUNCTION_APP, String.valueOf(true));
         validateApplicationInsightsConfiguration();
@@ -374,9 +391,10 @@ public class DeployMojo extends AbstractFunctionMojo {
 
     protected boolean isDedicatedPricingTier() throws AzureExecutionException {
         try {
-            final FunctionApp functionApp = getFunctionApp();
-            final AppServicePlan appServicePlan = AppServiceUtils.getAppServicePlanByAppService(functionApp);
-            final PricingTier functionPricingTier = appServicePlan.pricingTier();
+            final PricingTier functionPricingTier = Optional.ofNullable(getFunctionApp())
+                    .map(AppServiceUtils::getAppServicePlanByAppService)
+                    .map(AppServicePlan::pricingTier)
+                    .orElseThrow(() -> new AzureExecutionException(FAILED_TO_GET_FUNCTION_APP_PRICING_TIER));
             return PricingTier.getAll().stream().anyMatch(pricingTier -> pricingTier.equals(functionPricingTier));
         } catch (AzureAuthFailureException e) {
             throw new AzureExecutionException(FAILED_TO_GET_FUNCTION_APP_PRICING_TIER, e);
@@ -399,7 +417,49 @@ public class DeployMojo extends AbstractFunctionMojo {
         parsedJavaVersion = FunctionUtils.parseJavaVersion(getRuntime().getJavaVersion());
     }
 
-    public void processAppSettingsWithDefaultValue() {
+    // todo: Extract validator for all maven toolkits
+    @Deprecated
+    protected void validateParameters() throws AzureExecutionException {
+        // app name
+        if (StringUtils.isBlank(appName)) {
+            throw new AzureToolkitRuntimeException(EMPTY_APP_NAME);
+        }
+        if (appName.startsWith("-") || !appName.matches(APP_NAME_PATTERN)) {
+            throw new AzureToolkitRuntimeException(INVALID_APP_NAME);
+        }
+        // resource group
+        if (StringUtils.isBlank(resourceGroup)) {
+            throw new AzureToolkitRuntimeException(EMPTY_RESOURCE_GROUP);
+        }
+        if (resourceGroup.endsWith(".") || !resourceGroup.matches(RESOURCE_GROUP_PATTERN)) {
+            throw new AzureToolkitRuntimeException(INVALID_RESOURCE_GROUP_NAME);
+        }
+        // asp name & resource group
+        if (StringUtils.isNotEmpty(appServicePlanName) && !appServicePlanName.matches(APP_SERVICE_PLAN_NAME_PATTERN)) {
+            throw new AzureToolkitRuntimeException(String.format(INVALID_SERVICE_PLAN_NAME, APP_SERVICE_PLAN_NAME_PATTERN));
+        }
+        if (StringUtils.isNotEmpty(appServicePlanResourceGroup) &&
+                (appServicePlanResourceGroup.endsWith(".") || !appServicePlanResourceGroup.matches(RESOURCE_GROUP_PATTERN))) {
+            throw new AzureToolkitRuntimeException(INVALID_SERVICE_PLAN_RESOURCE_GROUP_NAME);
+        }
+        // slot name
+        if (deploymentSlotSetting != null && StringUtils.isEmpty(deploymentSlotSetting.getName())) {
+            throw new AzureToolkitRuntimeException(EMPTY_SLOT_NAME);
+        }
+        if (deploymentSlotSetting != null && !deploymentSlotSetting.getName().matches(SLOT_NAME_PATTERN)) {
+            throw new AzureToolkitRuntimeException(String.format(INVALID_SLOT_NAME, SLOT_NAME_PATTERN));
+        }
+        // region
+        if (StringUtils.isNotEmpty(region) && Region.fromName(region) == null) {
+            throw new AzureToolkitRuntimeException(INVALID_REGION);
+        }
+        // image
+        if (getOsEnum() == OperatingSystemEnum.Docker && StringUtils.isEmpty(runtime.getImage())) {
+            throw new AzureExecutionException(EMPTY_IMAGE_NAME);
+        }
+    }
+
+    private void processAppSettingsWithDefaultValue() {
         if (appSettings == null) {
             appSettings = new Properties();
         }
@@ -474,23 +534,20 @@ public class DeployMojo extends AbstractFunctionMojo {
      * @throws InterruptedException Throw when thread was interrupted while sleeping between retry
      */
     private List<FunctionResource> listFunctions() throws AzureExecutionException, AzureAuthFailureException, InterruptedException {
-        final FunctionApp functionApp = getFunctionApp();
         for (int i = 0; i < LIST_TRIGGERS_MAX_RETRY; i++) {
             Thread.sleep(LIST_TRIGGERS_RETRY_PERIOD_IN_SECONDS * 1000);
             Log.info(String.format(SYNCING_TRIGGERS_AND_FETCH_FUNCTION_INFORMATION, i + 1, LIST_TRIGGERS_MAX_RETRY));
             try {
-                functionApp.syncTriggers();
+                Optional.ofNullable(getFunctionApp()).ifPresent(FunctionApp::syncTriggers);
                 final List<FunctionResource> triggers = getAzureClient().appServices().functionApps()
                         .listFunctions(getResourceGroup(), getAppName()).stream()
-                        .map(envelope -> FunctionResource.parseFunction(envelope))
-                        .filter(function -> function != null)
+                        .map(FunctionResource::parseFunction)
                         .collect(Collectors.toList());
                 if (CollectionUtils.isNotEmpty(triggers)) {
                     return triggers;
                 }
             } catch (RuntimeException e) {
                 // swallow service exception while list triggers
-                continue;
             }
         }
         throw new AzureExecutionException(NO_TRIGGERS_FOUNDED);
@@ -508,7 +565,7 @@ public class DeployMojo extends AbstractFunctionMojo {
         if (appSettings.containsKey(APPINSIGHTS_INSTRUMENTATION_KEY)) {
             return;
         }
-        String instrumentationKey = null;
+        final String instrumentationKey;
         if (StringUtils.isNotEmpty(getAppInsightsKey())) {
             instrumentationKey = getAppInsightsKey();
             if (!Utils.isGUID(instrumentationKey)) {
