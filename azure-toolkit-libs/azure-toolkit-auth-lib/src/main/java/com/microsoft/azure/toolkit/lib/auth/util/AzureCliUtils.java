@@ -87,7 +87,7 @@ public class AzureCliUtils {
     }
 
     public static @Nonnull List<AzureCliSubscription> listSubscriptions() {
-        final JsonArray result = executeAzCommandJson("az account list --output json --all").getAsJsonArray();
+        final JsonArray result = executeAzCommandJson("az account list --output json").getAsJsonArray();
         final List<AzureCliSubscription> list = new ArrayList<>();
         if (result != null) {
             result.forEach(j -> {
@@ -170,7 +170,8 @@ public class AzureCliUtils {
                     final String redactedOutput = redactInfo(processOutput);
                     if (redactedOutput.contains("az login") || redactedOutput.contains("az account set")) {
                         throw new CredentialUnavailableException(
-                                "AzureCliTenantCredential authentication unavailable. Please run 'az login' to set up account.");
+                                "AzureCliTenantCredential authentication unavailable. Please run 'az login' to set up account. " +
+                                        "Detailed error is: " + processOutput);
                     }
                     throw new ClientAuthenticationException(redactedOutput, null);
                 } else {
