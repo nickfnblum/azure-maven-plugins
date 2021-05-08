@@ -7,25 +7,27 @@ package com.microsoft.azure.toolkit.lib.appservice.service.impl;
 
 import com.azure.core.management.exception.ManagementException;
 import com.azure.resourcemanager.appservice.models.WebAppBase;
+import com.microsoft.azure.toolkit.lib.appservice.manager.AppServiceKuduManager;
+import com.microsoft.azure.toolkit.lib.appservice.model.AppServiceFile;
+import com.microsoft.azure.toolkit.lib.appservice.model.CommandOutput;
 import com.microsoft.azure.toolkit.lib.appservice.model.DiagnosticConfig;
+import com.microsoft.azure.toolkit.lib.appservice.model.ProcessInfo;
 import com.microsoft.azure.toolkit.lib.appservice.model.PublishingProfile;
 import com.microsoft.azure.toolkit.lib.appservice.model.Runtime;
+import com.microsoft.azure.toolkit.lib.appservice.model.TunnelStatus;
 import com.microsoft.azure.toolkit.lib.appservice.service.IAppService;
 import com.microsoft.azure.toolkit.lib.common.exception.AzureToolkitRuntimeException;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Optional;
 
 public abstract class AbstractAppService<T extends WebAppBase> implements IAppService {
-    @Nullable
-    protected abstract T getResourceInner();
 
-    @Nonnull
-    protected T getNonnullResourceInner() {
-        return Optional.ofNullable(getResourceInner()).orElseThrow(() -> new AzureToolkitRuntimeException("Target resource does not exist."));
-    }
+    private AppServiceKuduManager kuduManager;
 
     @Override
     public void start() {
@@ -91,4 +93,59 @@ public abstract class AbstractAppService<T extends WebAppBase> implements IAppSe
     public String name() {
         return getNonnullResourceInner().name();
     }
+
+    @Override
+    public Mono<byte[]> getFileContent(String path) {
+        return getKuduManager().getFileContent(path);
+    }
+
+    @Override
+    public List<? extends AppServiceFile> getFilesInDirectory(String dir) {
+        return getKuduManager().getFilesInDirectory(dir);
+    }
+
+    @Override
+    public void uploadFileToPath(String content, String path) {
+        getKuduManager().uploadFileToPath(content, path);
+    }
+
+    @Override
+    public void createDirectory(String path) {
+        getKuduManager().createDirectory(path);
+    }
+
+    @Override
+    public void deleteFile(String path) {
+        getKuduManager().deleteFile(path);
+    }
+
+    @Override
+    public List<ProcessInfo> listProcess() {
+        return getKuduManager().listProcess();
+    }
+
+    @Override
+    public CommandOutput execute(String command, String dir) {
+        return getKuduManager().execute(command, dir);
+    }
+
+    @Override
+    public TunnelStatus getAppServiceTunnelStatus() {
+        return getKuduManager().getAppServiceTunnelStatus();
+    }
+
+    @Nonnull
+    protected T getNonnullResourceInner() {
+        return Optional.ofNullable(getResourceInner()).orElseThrow(() -> new AzureToolkitRuntimeException("Target resource does not exist."));
+    }
+
+    protected AppServiceKuduManager getKuduManager() {
+        if (kuduManager == null) {
+            kuduManager = AppServiceKuduManager.getClient(getNonnullResourceInner());
+        }
+        return kuduManager;
+    }
+
+    @Nullable
+    protected abstract T getResourceInner();
 }
