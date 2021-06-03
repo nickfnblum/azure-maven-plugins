@@ -67,10 +67,16 @@ public class AzureAppService extends SubscriptionScoped<AzureAppService> impleme
         return new FunctionApp(functionAppEntity, getAzureResourceManager(subscriptionId));
     }
 
-    public List<IFunctionApp> functionApps() {
+    public List<IFunctionApp> functionApps(boolean... force) {
         return getSubscriptions().stream()
-                .map(subscription -> getAzureResourceManager(subscription.getId()))
-                .flatMap(azureResourceManager -> azureResourceManager.functionApps().list().stream())
+                .flatMap(subscription -> listFunctionAppsBySubscription(subscription.getId(), force).stream())
+                .collect(Collectors.toList());
+    }
+
+    @Cacheable(cacheName = "functions-subscription", key = "$subscriptionId", condition = "!(force&&force[0])")
+    private List<IFunctionApp> listFunctionAppsBySubscription(String subscriptionId, boolean... force) {
+        return getAzureResourceManager(subscriptionId)
+                .functionApps().list().stream()
                 .filter(webAppBasic -> StringUtils.containsIgnoreCase(webAppBasic.innerModel().kind(), "functionapp")) // Filter out function apps
                 .map(webAppBasic -> functionApp(webAppBasic.id()))
                 .collect(Collectors.toList());
@@ -104,6 +110,21 @@ public class AzureAppService extends SubscriptionScoped<AzureAppService> impleme
                 .collect(Collectors.toList());
     }
 
+    public List<IWebApp> webapps(boolean... force) {
+        return getSubscriptions().stream()
+                .flatMap(subscription -> listWebAppsBySubscription(subscription.getId(), force).stream())
+                .collect(Collectors.toList());
+    }
+
+    @Cacheable(cacheName = "webapps-subscription", key = "$subscriptionId", condition = "!(force&&force[0])")
+    private List<IWebApp> listWebAppsBySubscription(String subscriptionId, boolean... force) {
+        return getAzureResourceManager(subscriptionId)
+                .webApps().list().stream()
+                .filter(webAppBasic -> !StringUtils.containsIgnoreCase(webAppBasic.innerModel().kind(), "functionapp")) // Filter out function apps
+                .map(webAppBasic -> webapp(webAppBasic.id()))
+                .collect(Collectors.toList());
+    }
+
     public IAppServicePlan appServicePlan(String id) {
         final AppServicePlanEntity appServicePlanEntity = AppServicePlanEntity.builder().id(id).build();
         return appServicePlan(appServicePlanEntity);
@@ -130,6 +151,20 @@ public class AzureAppService extends SubscriptionScoped<AzureAppService> impleme
         return getSubscriptions().stream()
                 .map(subscription -> getAzureResourceManager(subscription.getId()))
                 .flatMap(azureResourceManager -> azureResourceManager.appServicePlans().list().stream())
+                .map(appServicePlan -> appServicePlan(appServicePlan.id()))
+                .collect(Collectors.toList());
+    }
+
+    public List<IAppServicePlan> appServicePlans(boolean... force) {
+        return getSubscriptions().stream()
+                .flatMap(subscription -> listAppServicePlansBySubscription(subscription.getId(), force).stream())
+                .collect(Collectors.toList());
+    }
+
+    @Cacheable(cacheName = "service-plan-subscription", key = "$subscriptionId", condition = "!(force&&force[0])")
+    private List<IAppServicePlan> listAppServicePlansBySubscription(String subscriptionId, boolean... force) {
+        return getAzureResourceManager(subscriptionId)
+                .appServicePlans().list().stream()
                 .map(appServicePlan -> appServicePlan(appServicePlan.id()))
                 .collect(Collectors.toList());
     }
