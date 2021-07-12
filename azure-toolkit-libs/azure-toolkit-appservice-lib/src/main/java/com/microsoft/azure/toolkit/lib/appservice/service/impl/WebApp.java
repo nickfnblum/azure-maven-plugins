@@ -237,7 +237,7 @@ public class WebApp extends AbstractAppService<com.azure.resourcemanager.appserv
 
         private Update updateRuntime(Update update, Runtime newRuntime) {
             final Runtime current = WebApp.this.getRuntime();
-            if (Objects.equals(current, newRuntime)) {
+            if (Objects.equals(current, newRuntime) && !newRuntime.isDocker()) {
                 return update;
             }
             if (newRuntime.getOperatingSystem() != null && current.getOperatingSystem() != newRuntime.getOperatingSystem()) {
