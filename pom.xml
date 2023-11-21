@@ -81,7 +81,7 @@
         <maven.javadoc-plugin.version>2.9.1</maven.javadoc-plugin.version>
         <maven.checkstyle-plugin.version>3.1.2</maven.checkstyle-plugin.version>
 
-        <azure.maven-plugin-lib.version>1.13.0-SNAPSHOT</azure.maven-plugin-lib.version>
+        <azure.maven-plugin-lib.version>1.32.0</azure.maven-plugin-lib.version>
         <jacoco.version>0.8.7</jacoco.version>
 
     </properties>
