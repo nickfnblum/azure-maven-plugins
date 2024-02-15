@@ -122,7 +122,7 @@
         <jjwt.version>0.9.1</jjwt.version>
         <reflections.version>0.9.12</reflections.version>
         <azure.core-http-netty.version>1.9.2</azure.core-http-netty.version>
-        <nimbusds.oauth2.oidc.sdk.version>9.7</nimbusds.oauth2.oidc.sdk.version>
+        <nimbusds.oauth2.oidc.sdk.version>11.7.1</nimbusds.oauth2.oidc.sdk.version>
         <semver4j.version>3.1.0</semver4j.version>
         <nimbus-jose-jwt.version>9.9.3</nimbus-jose-jwt.version>
         <joda-time.version>2.10.10</joda-time.version>
