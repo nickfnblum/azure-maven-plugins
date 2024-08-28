@@ -22,6 +22,7 @@ import org.apache.commons.lang3.tuple.Triple;
 import org.jetbrains.annotations.PropertyKey;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.lang.reflect.Parameter;
 import java.time.Instant;
 import java.util.HashMap;
@@ -50,20 +51,26 @@ public class AzureTelemeter {
     public static final String ERROR_CLASSNAME = "error.error_class_name";
     public static final String ERROR_ROOT_CLASSNAME = "error.root_error_class_name";
     public static final String ERROR_STACKTRACE = "error.error_stack_trace";
-    @Getter
-    @Nonnull
-    private static final AzureTelemetryClient client = new AzureTelemetryClient();
+    @Nullable
+    private static AzureTelemetryClient client = null;
+
+    public static synchronized AzureTelemetryClient getClient() {
+        if (client == null) {
+            client = new AzureTelemetryClient();
+        }
+        return client;
+    }
 
     public static void addCommonProperties(@Nonnull Map<String, String> commonProperties) {
-        client.addDefaultProperties(commonProperties);
+        getClient().addDefaultProperties(commonProperties);
     }
 
     public static void addCommonProperty(@Nonnull String key, @Nonnull String value) {
-        client.addDefaultProperty(key, value);
+        getClient().addDefaultProperty(key, value);
     }
 
     public static void setEventNamePrefix(@Nonnull String prefix) {
-        client.setEventNamePrefix(prefix);
+        getClient().setEventNamePrefix(prefix);
     }
 
     public static void afterCreate(@Nonnull final Operation op) {
@@ -124,8 +131,8 @@ public class AzureTelemeter {
 
     public static void log(final AzureTelemetry.Type type, final Map<String, String> properties) {
         if (!StringUtils.equals(properties.get(OP_NAME), Operation.UNKNOWN_NAME)) {
-            final String eventName = Optional.ofNullable(client.getEventNamePrefix()).orElse("AzurePlugin") + "/" + type.getName();
-            client.trackEvent(eventName, properties, null);
+            final String eventName = Optional.ofNullable(getClient().getEventNamePrefix()).orElse("AzurePlugin") + "/" + type.getName();
+            getClient().trackEvent(eventName, properties, null);
         }
     }
 

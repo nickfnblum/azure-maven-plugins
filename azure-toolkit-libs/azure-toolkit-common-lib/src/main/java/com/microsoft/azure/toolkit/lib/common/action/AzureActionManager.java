@@ -24,7 +24,7 @@ public abstract class AzureActionManager {
     }
 
     private static final class Holder {
-        private static final AzureActionManager instance = loadActionManager();
+        private static AzureActionManager instance = null;
 
         @Nullable
         private static AzureActionManager loadActionManager() {
@@ -43,7 +43,10 @@ public abstract class AzureActionManager {
         }
     }
 
-    public static AzureActionManager getInstance() {
+    public static synchronized AzureActionManager getInstance() {
+        if (Holder.instance == null) {
+            Holder.instance = Holder.loadActionManager();
+        }
         return Holder.instance;
     }
 

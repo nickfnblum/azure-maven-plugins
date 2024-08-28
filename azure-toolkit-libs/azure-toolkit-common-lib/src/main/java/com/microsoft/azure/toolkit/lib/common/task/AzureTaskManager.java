@@ -26,7 +26,7 @@ import static com.microsoft.azure.toolkit.lib.common.operation.Operation.UNKNOWN
 public abstract class AzureTaskManager {
 
     private static class Holder {
-        private static final AzureTaskManager instance = loadTaskManager();
+        private static AzureTaskManager instance = null;
 
         @Nonnull
         private static AzureTaskManager loadTaskManager() {
@@ -45,7 +45,10 @@ public abstract class AzureTaskManager {
         }
     }
 
-    public static AzureTaskManager getInstance() {
+    public static synchronized AzureTaskManager getInstance() {
+        if (Holder.instance == null) {
+            Holder.instance = Holder.loadTaskManager();
+        }
         return Holder.instance;
     }
 
