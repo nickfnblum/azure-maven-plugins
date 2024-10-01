@@ -609,6 +609,52 @@
       "settings": [
         
       ]
+    },
+    {
+      "type": "assistantSkillTrigger",
+      "displayName": "$assistantSkillTrigger_displayName",
+      "direction": "trigger",
+      "enabledInTryMode": true,
+      "settings": [
+        {
+          "name": "name",
+          "value": "string",
+          "required": true,
+          "label": "$assistantSkillTrigger_name_label",
+          "help": "$assistantSkillTrigger_name_help"
+        },
+        {
+          "name": "functionName",
+          "value": "string",
+          "defaultValue": "",
+          "required": false,
+          "label": "$assistantSkillTrigger_functionName_label",
+          "help": "$assistantSkillTrigger_functionName_help"
+        },
+        {
+          "name": "functionDescription",
+          "value": "string",
+          "required": true,
+          "label": "$assistantSkillTrigger_functionDescription_label",
+          "help": "$assistantSkillTrigger_functionDescription_help"
+        },
+        {
+          "name": "parameterDescriptionJson",
+          "value": "string",
+          "defaultValue": "",
+          "required": false,
+          "label": "$assistantSkillTrigger_parameterDescriptionJson_label",
+          "help": "$assistantSkillTrigger_parameterDescriptionJson_help"
+        },
+        {
+          "name": "model",
+          "value": "string",
+          "defaultValue": "gpt-3.5-turbo",
+          "required": false,
+          "label": "$assistantSkillTrigger_model_label",
+          "help": "$assistantSkillTrigger_model_help"
+        }
+      ]
     }
   ]
 }

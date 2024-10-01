@@ -600,6 +600,38 @@
       "files": {
         "function.java": "package $packageName$;\r\n\r\nimport com.fasterxml.jackson.core.JsonProcessingException;\r\nimport com.fasterxml.jackson.databind.JsonNode;\r\nimport com.fasterxml.jackson.databind.ObjectMapper;\r\nimport com.microsoft.azure.functions.ExecutionContext;\r\nimport com.microsoft.azure.functions.OutputBinding;\r\nimport com.microsoft.azure.functions.annotation.FunctionName;\r\nimport com.microsoft.azure.functions.dapr.annotation.DaprStateOutput;\r\nimport com.microsoft.azure.functions.dapr.annotation.DaprTopicTrigger;\r\n\r\n\r\npublic class $className$ {\r\n\r\n    \/*\r\n    Visit https:\/\/aka.ms\/azure-functions-dapr to learn how to use the Dapr extension.\r\n    These tasks should be completed prior to running :\r\n      1. Install Dapr\r\n      2. Change the bundle name in host.json to \"Microsoft.Azure.Functions.ExtensionBundle.Preview\" and the version to \"[4.*, 5.0.0)\"\r\n    Start function app with Dapr: dapr run --app-id functionapp --app-port 3001 --dapr-http-port 3501 -- mvn azure-functions:run\r\n    Invoke function app in cmd promt: dapr publish --pubsub pubsub --publish-app-id functionapp --topic Q --data '{\\\"value\\\": { \\\"orderId\\\": \\\"42\\\" } }'\r\n    *\/\r\n    @FunctionName(\"DaprTopicTriggerFunc\")\r\n    public String run(\r\n        @DaprTopicTrigger(\r\n            pubSubName = \"pubsub\",\r\n            topic = \"Q\")\r\n            String request,\r\n        @DaprStateOutput(\r\n            stateStore = \"statestore\",\r\n            key = \"product\")\r\n        OutputBinding<String> product,\r\n        final ExecutionContext context) throws JsonProcessingException {\r\n        context.getLogger().info(\"Java DaprTopic trigger with DaprState output binding function processed a request from the Dapr Runtime.\");\r\n\r\n        \/\/ Get the CloudEvent data from the request body as a JSON string\r\n        ObjectMapper objectMapper = new ObjectMapper();\r\n        JsonNode jsonNode = objectMapper.readTree(request).get(\"data\");\r\n        String serializedJson = objectMapper.writeValueAsString(jsonNode);\r\n        product.setValue(serializedJson);\r\n\r\n        return serializedJson;\r\n    }\r\n}"
       }
+    },
+    {
+      "id": "AssistantSkillTrigger-Java",
+      "metadata": {
+        "name": "AssistantSkillTrigger",
+        "description": "$AssistantSkillTrigger_description",
+        "defaultFunctionName": "assistantSkillTriggerJava",
+        "language": "Java",
+        "userPrompt": [
+          "name",
+          "functionDescription",
+          "parameterDescriptionJson",
+          "model"
+        ]
+      },
+      "bundle": ["~4"],
+      "function": {
+        "disabled": false,
+        "bindings": [
+          {
+            "type": "assistantSkillTrigger",
+            "name": "taskDescription",
+            "direction": "in",
+            "functionDescription": "Create a new todo task",
+            "parameterDescriptionJson": "{}",
+            "model": "gpt-3.5-turbo"
+          }
+        ]
+      },
+      "files": {
+        "function.java": "package $packageName$;\n\nimport com.microsoft.azure.functions.annotation.*;\nimport com.microsoft.azure.functions.*;\n\nimport java.util.*;\nimport java.util.concurrent.CopyOnWriteArrayList;\n\npublic class AddTodoFunction {\n\n    // In-memory list to store todo items\n    private static final List<TodoItem> todoList = new CopyOnWriteArrayList<>();\n\n    @FunctionName(\"AddTodo\")\n    public void addTodo(\n        @AssistantSkillTrigger(\n                name = \"$name$\",\n                functionDescription = \"$functionDescription$\",\n                parameterDescriptionJson = \"$parameterDescriptionJson$\",\n                model = \"$model$\"\n        ) String taskDescription,\n        final ExecutionContext context) {\n\n        if (taskDescription == null || taskDescription.isEmpty()) {\n            throw new IllegalArgumentException(\"Task description cannot be empty\");\n        }\n\n        context.getLogger().info(\"Adding todo: \" + taskDescription);\n\n        // Generate a random ID for the todo item\n        String todoId = UUID.randomUUID().toString().substring(0, 6);\n\n        // Create a new TodoItem and add it to the in-memory list\n        TodoItem todoItem = new TodoItem(todoId, taskDescription);\n        todoList.add(todoItem);\n\n        context.getLogger().info(\"Todo added with ID: \" + todoId);\n    }\n\n    // Simple TodoItem class\n    static class TodoItem {\n        private String id;\n        private String description;\n\n        public TodoItem(String id, String description) {\n            this.id = id;\n            this.description = description;\n        }\n\n        public String getId() {\n            return id;\n        }\n\n        public String getDescription() {\n            return description;\n        }\n    }\n}\n"
+      }
     }
   ]
 }
