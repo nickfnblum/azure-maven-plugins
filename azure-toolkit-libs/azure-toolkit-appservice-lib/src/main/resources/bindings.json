@@ -616,44 +616,14 @@
       "direction": "trigger",
       "enabledInTryMode": true,
       "settings": [
-        {
-          "name": "name",
-          "value": "string",
-          "required": true,
-          "label": "$assistantSkillTrigger_name_label",
-          "help": "$assistantSkillTrigger_name_help"
-        },
-        {
-          "name": "functionName",
-          "value": "string",
-          "defaultValue": "",
-          "required": false,
-          "label": "$assistantSkillTrigger_functionName_label",
-          "help": "$assistantSkillTrigger_functionName_help"
-        },
-        {
-          "name": "functionDescription",
-          "value": "string",
-          "required": true,
-          "label": "$assistantSkillTrigger_functionDescription_label",
-          "help": "$assistantSkillTrigger_functionDescription_help"
-        },
-        {
-          "name": "parameterDescriptionJson",
-          "value": "string",
-          "defaultValue": "",
-          "required": false,
-          "label": "$assistantSkillTrigger_parameterDescriptionJson_label",
-          "help": "$assistantSkillTrigger_parameterDescriptionJson_help"
-        },
-        {
-          "name": "model",
-          "value": "string",
-          "defaultValue": "gpt-3.5-turbo",
-          "required": false,
-          "label": "$assistantSkillTrigger_model_label",
-          "help": "$assistantSkillTrigger_model_help"
-        }
+      ]
+    },
+    {
+      "type": "assistantCreate",
+      "displayName": "$assistantCreate_displayName",
+      "direction": "out",
+      "enabledInTryMode": true,
+      "settings": [
       ]
     },
     {
@@ -662,34 +632,6 @@
       "direction": "in",
       "enabledInTryMode": true,
       "settings": [
-        {
-          "name": "name",
-          "value": "string",
-          "required": true,
-          "label": "$assistantPost_name_label",
-          "help": "$assistantPost_name_help"
-        },
-        {
-          "name": "id",
-          "value": "string",
-          "required": true,
-          "label": "$assistantPost_id_label",
-          "help": "$assistantPost_id_help"
-        },
-        {
-          "name": "model",
-          "value": "string",
-          "required": true,
-          "label": "$assistantPost_model_label",
-          "help": "$assistantPost_model_help"
-        },
-        {
-          "name": "userMessage",
-          "value": "string",
-          "required": true,
-          "label": "$assistantPost_userMessage_label",
-          "help": "$assistantPost_userMessage_help"
-        }
       ]
     },
     {
@@ -698,27 +640,6 @@
       "direction": "in",
       "enabledInTryMode": true,
       "settings": [
-        {
-          "name": "name",
-          "value": "string",
-          "required": true,
-          "label": "$assistantQuery_name_label",
-          "help": "$assistantQuery_name_help"
-        },
-        {
-          "name": "id",
-          "value": "string",
-          "required": true,
-          "label": "$assistantQuery_id_label",
-          "help": "$assistantQuery_id_help"
-        },
-        {
-          "name": "timestampUtc",
-          "value": "string",
-          "required": true,
-          "label": "$assistantQuery_timestampUtc_label",
-          "help": "$assistantQuery_timestampUtc_help"
-        }
       ]
     },
     {
@@ -727,51 +648,6 @@
       "direction": "in",
       "enabledInTryMode": true,
       "settings": [
-        {
-          "name": "name",
-          "value": "string",
-          "required": true,
-          "label": "$embeddings_name_label",
-          "help": "$embeddings_name_help"
-        },
-        {
-          "name": "model",
-          "value": "string",
-          "defaultValue": "text-embedding-ada-002",
-          "required": false,
-          "label": "$embeddings_model_label",
-          "help": "$embeddings_model_help"
-        },
-        {
-          "name": "maxChunkLength",
-          "value": "int",
-          "defaultValue": 8192,
-          "required": false,
-          "label": "$embeddings_maxChunkLength_label",
-          "help": "$embeddings_maxChunkLength_help"
-        },
-        {
-          "name": "maxOverlap",
-          "value": "int",
-          "defaultValue": 128,
-          "required": false,
-          "label": "$embeddings_maxOverlap_label",
-          "help": "$embeddings_maxOverlap_help"
-        },
-        {
-          "name": "input",
-          "value": "string",
-          "required": true,
-          "label": "$embeddings_input_label",
-          "help": "$embeddings_input_help"
-        },
-        {
-          "name": "inputType",
-          "value": "enum",
-          "required": true,
-          "label": "$embeddings_inputType_label",
-          "help": "$embeddings_inputType_help"
-        }
       ]
     },
     {
@@ -780,65 +656,6 @@
       "direction": "out",
       "enabledInTryMode": true,
       "settings": [
-        {
-          "name": "name",
-          "value": "string",
-          "required": true,
-          "label": "$embeddingsStore_name_label",
-          "help": "$embeddingsStore_name_help"
-        },
-        {
-          "name": "model",
-          "value": "string",
-          "defaultValue": "text-embedding-ada-002",
-          "required": false,
-          "label": "$embeddingsStore_model_label",
-          "help": "$embeddingsStore_model_help"
-        },
-        {
-          "name": "maxChunkLength",
-          "value": "int",
-          "defaultValue": 8192,
-          "required": false,
-          "label": "$embeddingsStore_maxChunkLength_label",
-          "help": "$embeddingsStore_maxChunkLength_help"
-        },
-        {
-          "name": "maxOverlap",
-          "value": "int",
-          "defaultValue": 128,
-          "required": false,
-          "label": "$embeddingsStore_maxOverlap_label",
-          "help": "$embeddingsStore_maxOverlap_help"
-        },
-        {
-          "name": "input",
-          "value": "string",
-          "required": true,
-          "label": "$embeddingsStore_input_label",
-          "help": "$embeddingsStore_input_help"
-        },
-        {
-          "name": "inputType",
-          "value": "enum",
-          "required": true,
-          "label": "$embeddingsStore_inputType_label",
-          "help": "$embeddingsStore_inputType_help"
-        },
-        {
-          "name": "connectionName",
-          "value": "string",
-          "required": true,
-          "label": "$embeddingsStore_connectionName_label",
-          "help": "$embeddingsStore_connectionName_help"
-        },
-        {
-          "name": "collection",
-          "value": "string",
-          "required": true,
-          "label": "$embeddingsStore_collection_label",
-          "help": "$embeddingsStore_collection_help"
-        }
       ]
     },
     {
@@ -847,65 +664,6 @@
       "direction": "in",
       "enabledInTryMode": true,
       "settings": [
-        {
-          "name": "name",
-          "value": "string",
-          "required": true,
-          "label": "$semanticSearch_name_label",
-          "help": "$semanticSearch_name_help"
-        },
-        {
-          "name": "connectionName",
-          "value": "string",
-          "required": true,
-          "label": "$semanticSearch_connectionName_label",
-          "help": "$semanticSearch_connectionName_help"
-        },
-        {
-          "name": "collection",
-          "value": "string",
-          "required": true,
-          "label": "$semanticSearch_collection_label",
-          "help": "$semanticSearch_collection_help"
-        },
-        {
-          "name": "query",
-          "value": "string",
-          "required": false,
-          "label": "$semanticSearch_query_label",
-          "help": "$semanticSearch_query_help"
-        },
-        {
-          "name": "embeddingsModel",
-          "value": "string",
-          "defaultValue": "text-embedding-ada-002",
-          "required": false,
-          "label": "$semanticSearch_embeddingsModel_label",
-          "help": "$semanticSearch_embeddingsModel_help"
-        },
-        {
-          "name": "chatModel",
-          "value": "string",
-          "defaultValue": "gpt-3.5-turbo",
-          "required": false,
-          "label": "$semanticSearch_chatModel_label",
-          "help": "$semanticSearch_chatModel_help"
-        },
-        {
-          "name": "systemPrompt",
-          "value": "string",
-          "required": false,
-          "label": "$semanticSearch_systemPrompt_label",
-          "help": "$semanticSearch_systemPrompt_help"
-        },
-        {
-          "name": "maxKnowledgeLength",
-          "value": "int",
-          "defaultValue": 1,
-          "required": false,
-          "label": "$semanticSearch_maxKnowledgeLength_label",
-          "help": "$semanticSearch_maxKnowledgeLength_help"
-        }
       ]
     },
     {
@@ -914,51 +672,6 @@
       "direction": "in",
       "enabledInTryMode": true,
       "settings": [
-        {
-          "name": "name",
-          "value": "string",
-          "required": true,
-          "label": "$textCompletion_name_label",
-          "help": "$textCompletion_name_help"
-        },
-        {
-          "name": "prompt",
-          "value": "string",
-          "required": true,
-          "label": "$textCompletion_prompt_label",
-          "help": "$textCompletion_prompt_help"
-        },
-        {
-          "name": "model",
-          "value": "string",
-          "defaultValue": "gpt-3.5-turbo",
-          "required": false,
-          "label": "$textCompletion_model_label",
-          "help": "$textCompletion_model_help"
-        },
-        {
-          "name": "temperature",
-          "value": "string",
-          "defaultValue": "0.5",
-          "required": false,
-          "label": "$textCompletion_temperature_label",
-          "help": "$textCompletion_temperature_help"
-        },
-        {
-          "name": "topP",
-          "value": "string",
-          "required": false,
-          "label": "$textCompletion_topP_label",
-          "help": "$textCompletion_topP_help"
-        },
-        {
-          "name": "maxTokens",
-          "value": "string",
-          "defaultValue": "100",
-          "required": false,
-          "label": "$textCompletion_maxTokens_label",
-          "help": "$textCompletion_maxTokens_help"
-        }
       ]
     }
   ]

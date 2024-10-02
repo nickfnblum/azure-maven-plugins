@@ -607,13 +607,7 @@
         "name": "AssistantSkillTrigger",
         "description": "$AssistantSkillTrigger_description",
         "defaultFunctionName": "assistantSkillTriggerJava",
-        "language": "Java",
-        "userPrompt": [
-          "name",
-          "functionDescription",
-          "parameterDescriptionJson",
-          "model"
-        ]
+        "language": "Java"
       },
       "bundle": ["~4"],
       "function": {
@@ -639,11 +633,7 @@
         "name": "AssistantCreate",
         "description": "$AssistantCreate_description",
         "defaultFunctionName": "assistantCreateJava",
-        "language": "Java",
-        "userPrompt": [
-          "name",
-          "chatId"
-        ]
+        "language": "Java"
       },
       "bundle": ["~4"],
       "function": {
@@ -666,11 +656,7 @@
         "name": "AssistantQuery",
         "description": "$AssistantQuery_description",
         "defaultFunctionName": "assistantQueryJava",
-        "language": "Java",
-        "userPrompt": [
-          "name",
-          "chatId"
-        ]
+        "language": "Java"
       },
       "bundle": ["~4"],
       "function": {
@@ -695,12 +681,7 @@
         "name": "AssistantPost",
         "description": "$AssistantPost_description",
         "defaultFunctionName": "assistantPostJava",
-        "language": "Java",
-        "userPrompt": [
-          "name",
-          "chatId",
-          "model"
-        ]
+        "language": "Java"
       },
       "bundle": ["~4"],
       "function": {
@@ -721,84 +702,12 @@
       }
     },
     {
-      "type": "embeddingsInput",
-      "displayName": "$embeddingsInput_displayName",
-      "direction": "in",
-      "enabledInTryMode": true,
-      "settings": [
-        {
-          "name": "name",
-          "value": "string",
-          "required": true,
-          "label": "$embeddingsInput_name_label",
-          "help": "$embeddingsInput_name_help"
-        },
-        {
-          "name": "input",
-          "value": "string",
-          "required": true,
-          "label": "$embeddingsInput_input_label",
-          "help": "$embeddingsInput_input_help"
-        },
-        {
-          "name": "inputType",
-          "value": "enum",
-          "enum": [
-            {
-              "value": "RawText",
-              "display": "Raw Text"
-            },
-            {
-              "value": "FilePath",
-              "display": "File Path"
-            },
-            {
-              "value": "Url",
-              "display": "URL"
-            }
-          ],
-          "required": true,
-          "label": "$embeddingsInput_inputType_label",
-          "help": "$embeddingsInput_inputType_help"
-        },
-        {
-          "name": "model",
-          "value": "string",
-          "required": true,
-          "label": "$embeddingsInput_model_label",
-          "help": "$embeddingsInput_model_help"
-        },
-        {
-          "name": "maxChunkLength",
-          "value": "int",
-          "required": false,
-          "label": "$embeddingsInput_maxChunkLength_label",
-          "help": "$embeddingsInput_maxChunkLength_help"
-        },
-        {
-          "name": "maxOverlap",
-          "value": "int",
-          "required": false,
-          "label": "$embeddingsInput_maxOverlap_label",
-          "help": "$embeddingsInput_maxOverlap_help"
-        }
-      ]
-    },
-    {
       "id": "EmbeddingsStoreOutput-Java",
       "metadata": {
         "name": "EmbeddingsStoreOutput",
         "description": "$EmbeddingsStoreOutput_description",
         "defaultFunctionName": "embeddingsStoreOutputJava",
-        "language": "Java",
-        "userPrompt": [
-          "name",
-          "input",
-          "inputType",
-          "connectionName",
-          "collection",
-          "model"
-        ]
+        "language": "Java"
       },
       "bundle": ["~4"],
       "function": {
@@ -821,17 +730,39 @@
       }
     },
     {
+      "id": "EmbeddingsInput-Java",
+      "metadata": {
+        "name": "EmbeddingsInput",
+        "description": "$EmbeddingsInput_description",
+        "defaultFunctionName": "embeddingsInputJava",
+        "language": "Java"
+      },
+      "bundle": ["~4"],
+      "function": {
+        "disabled": false,
+        "bindings": [
+          {
+            "type": "embeddingsInput",
+            "name": "input",
+            "direction": "in",
+            "input": "{RawText}",
+            "inputType": "RawText",
+            "connectionName": "AISearchEndpoint",
+            "model": "%EMBEDDING_MODEL_DEPLOYMENT_NAME%"
+          }
+        ]
+      },
+      "files": {
+        "function.java": "package $packageName$;\n\nimport com.microsoft.azure.functions.annotation.*;\nimport com.microsoft.azure.functions.*;\nimport com.microsoft.azure.functions.openai.annotation.embeddings.EmbeddingsInput;\nimport com.microsoft.azure.functions.openai.annotation.embeddings.InputType;\nimport org.json.JSONObject;\n\n/**\n * Azure Functions embeddings sample to generate embeddings.\n */\npublic class $className$ {\n\n    /**\n     * Example showing how to use the EmbeddingsInput input binding to generate embeddings \n     * for a raw text string.\n     */\n    @FunctionName(\"$functionName$\")\n    public HttpResponseMessage generateEmbeddingsHttpRequest(\n        @HttpTrigger(\n            name = \"req\", \n            methods = {HttpMethod.POST},\n            authLevel = AuthorizationLevel.ANONYMOUS,\n            route = \"embeddings\")\n        HttpRequestMessage<EmbeddingsRequest> request,\n        @EmbeddingsInput(name = \"Embeddings\", input = \"{RawText}\", inputType = InputType.RawText, model = \"%EMBEDDING_MODEL_DEPLOYMENT_NAME%\") String embeddingsContext,\n        final ExecutionContext context) {\n\n        if (request.getBody() == null)\n        {\n            throw new IllegalArgumentException(\"Invalid request body. Make sure that you pass in {\\\"rawText\\\": value } as the request body.\");\n        }\n\n        JSONObject embeddingsContextJsonObject = new JSONObject(embeddingsContext);\n        \n        context.getLogger().info(String.format(\"Received %d embedding(s) for input text containing %s characters.\",\n                embeddingsContextJsonObject.getJSONObject(\"response\")\n                        .getJSONArray(\"data\")\n                        .getJSONObject(0)\n                        .getJSONArray(\"embedding\").length(),\n                request.getBody().getRawText().length()));\n\n        // TODO: Store the embeddings into a database or other storage.\n        return request.createResponseBuilder(HttpStatus.ACCEPTED)\n                .header(\"Content-Type\", \"application/json\")\n                .build();\n    }\n\n    /**\n     * Example showing how to use the EmbeddingsInput input binding to generate embeddings\n     * for text contained in a file on the file system.\n     */\n    @FunctionName(\"GenerateEmbeddingsHttpFilePath\")\n    public HttpResponseMessage generateEmbeddingsHttpFilePath(\n        @HttpTrigger(\n            name = \"req\", \n            methods = {HttpMethod.POST},\n            authLevel = AuthorizationLevel.ANONYMOUS,\n            route = \"embeddings-from-file\")\n        HttpRequestMessage<EmbeddingsRequest> request,\n        @EmbeddingsInput(name = \"Embeddings\", input = \"{FilePath}\", inputType = InputType.FilePath, maxChunkLength = 512, model = \"%EMBEDDING_MODEL_DEPLOYMENT_NAME%\") String embeddingsContext,\n        final ExecutionContext context) {\n\n        if (request.getBody() == null)\n        {\n            throw new IllegalArgumentException(\"Invalid request body. Make sure that you pass in {\\\"rawText\\\": value } as the request body.\");\n        }\n\n        JSONObject embeddingsContextJsonObject = new JSONObject(embeddingsContext);\n        \n        context.getLogger().info(String.format(\"Received %d embedding(s) for input file %s.\",\n                embeddingsContextJsonObject.getJSONObject(\"response\")\n                        .getJSONArray(\"data\")\n                        .getJSONObject(0)\n                        .getJSONArray(\"embedding\").length(),\n                request.getBody().getFilePath()));\n\n        // TODO: Store the embeddings into a database or other storage.\n        return request.createResponseBuilder(HttpStatus.ACCEPTED)\n                .header(\"Content-Type\", \"application/json\")\n                .build();\n    }\n\n    /**\n     * Example showing how to use the EmbeddingsInput input binding to generate embeddings\n     * for text contained in a file on the file system.\n     */\n    @FunctionName(\"GenerateEmbeddingsHttpUrl\")\n    public HttpResponseMessage generateEmbeddingsHttpUrl(\n        @HttpTrigger(\n            name = \"req\", \n            methods = {HttpMethod.POST},\n            authLevel = AuthorizationLevel.ANONYMOUS,\n            route = \"embeddings-from-url\")\n        HttpRequestMessage<EmbeddingsRequest> request,\n        @EmbeddingsInput(name = \"Embeddings\", input = \"{Url}\", inputType = InputType.Url, maxChunkLength = 512, model = \"%EMBEDDING_MODEL_DEPLOYMENT_NAME%\") String embeddingsContext,\n        final ExecutionContext context) {\n\n        if (request.getBody() == null)\n        {\n            throw new IllegalArgumentException(\"Invalid request body. Make sure that you pass in {\\\"rawText\\\": value } as the request body.\");\n        }\n\n        JSONObject embeddingsContextJsonObject = new JSONObject(embeddingsContext);\n        \n        context.getLogger().info(String.format(\"Received %d embedding(s) for input url %s.\",\n                embeddingsContextJsonObject.getJSONObject(\"response\")\n                        .getJSONArray(\"data\")\n                        .getJSONObject(0)\n                        .getJSONArray(\"embedding\").length(),\n                request.getBody().getUrl()));\n\n        // TODO: Store the embeddings into a database or other storage.\n        return request.createResponseBuilder(HttpStatus.ACCEPTED)\n                .header(\"Content-Type\", \"application/json\")\n                .build();\n    }    \n\n    public class EmbeddingsRequest {\n        private String rawText;\n        private String filePath;\n        private String url;\n\n        public String getRawText() {\n            return rawText;\n        }\n\n        public void setRawText(String rawText) {\n            this.rawText = rawText;\n        }\n\n        public String getFilePath() {\n            return filePath;\n        }\n\n        public void setFilePath(String filePath) {\n            this.filePath = filePath;\n        }\n\n        public String getUrl() {\n            return url;\n        }\n\n        public void setUrl(String url) {\n            this.url = url;\n        }        \n    }  \n}\n"
+      }
+    },
+    {
       "id": "TextCompletion-Java",
       "metadata": {
         "name": "TextCompletion",
         "description": "$TextCompletion_description",
         "defaultFunctionName": "textCompletionJava",
-        "language": "Java",
-        "userPrompt": [
-          "name",
-          "prompt",
-          "model"
-        ]
+        "language": "Java"
       },
       "bundle": ["~4"],
       "function": {
@@ -848,6 +779,34 @@
       },
       "files": {
         "function.java": "package $packageName$;\n\nimport com.microsoft.azure.functions.annotation.*;\nimport com.microsoft.azure.functions.*;\nimport com.microsoft.azure.functions.openai.annotation.textcompletion.TextCompletion;\nimport com.microsoft.azure.functions.openai.annotation.textcompletion.TextCompletionResponse;\n\npublic class $className$ {\n\n    @FunctionName(\"$functionName$\")\n    public HttpResponseMessage textCompletion(\n        @HttpTrigger(\n            name = \"req\", \n            methods = {HttpMethod.POST},\n            authLevel = AuthorizationLevel.ANONYMOUS) \n            HttpRequestMessage<Optional<String>> request,\n        @TextCompletion(prompt = \"$prompt$\", model = \"$model$\", name = \"$name$\") TextCompletionResponse response,\n        final ExecutionContext context) {\n        return request.createResponseBuilder(HttpStatus.OK)\n            .header(\"Content-Type\", \"application/json\")\n            .body(response.getContent())\n            .build();\n    }\n}\n"
+      }
+    },
+    {
+      "id": "SemanticSearch-Java",
+      "metadata": {
+        "name": "SemanticSearch",
+        "description": "$SemanticSearch_description",
+        "defaultFunctionName": "semanticSearchJava",
+        "language": "Java"
+      },
+      "bundle": ["~4"],
+      "function": {
+        "disabled": false,
+        "bindings": [
+          {
+            "type": "semanticSearch",
+            "name": "search",
+            "direction": "in",
+            "connectionName": "AISearchEndpoint",
+            "collection": "openai-index",
+            "query": "{Prompt}",
+            "chatModel": "%CHAT_MODEL_DEPLOYMENT_NAME%",
+            "embeddingsModel": "%EMBEDDING_MODEL_DEPLOYMENT_NAME%"
+          }
+        ]
+      },
+      "files": {
+        "function.java": "package $packageName$;\n\nimport java.net.MalformedURLException;\nimport java.nio.file.Paths;\n\nimport org.json.JSONObject;\nimport com.microsoft.azure.functions.ExecutionContext;\nimport com.microsoft.azure.functions.HttpMethod;\nimport com.microsoft.azure.functions.HttpRequestMessage;\nimport com.microsoft.azure.functions.HttpResponseMessage;\nimport com.microsoft.azure.functions.HttpStatus;\nimport com.microsoft.azure.functions.OutputBinding;\nimport com.microsoft.azure.functions.annotation.AuthorizationLevel;\nimport com.microsoft.azure.functions.annotation.FunctionName;\nimport com.microsoft.azure.functions.annotation.HttpTrigger;\nimport com.microsoft.azure.functions.openai.annotation.embeddings.EmbeddingsStoreOutput;\nimport com.microsoft.azure.functions.openai.annotation.embeddings.InputType;\nimport com.microsoft.azure.functions.openai.annotation.search.SearchableDocument;\nimport com.microsoft.azure.functions.openai.annotation.search.SemanticSearch;\nimport com.sun.jndi.toolkit.url.Uri;\n\npublic class $className$ {\n\n    @FunctionName(\"IngestFile\")\n    public HttpResponseMessage ingestFile(\n        @HttpTrigger(\n            name = \"req\", \n            methods = {HttpMethod.POST},\n            authLevel = AuthorizationLevel.ANONYMOUS)\n            HttpRequestMessage<EmbeddingsRequest> request,\n        @EmbeddingsStoreOutput(name=\"EmbeddingsStoreOutput\", input = \"{Url}\", inputType = InputType.Url,\n                connectionName = \"AISearchEndpoint\", collection = \"openai-index\",\n                model = \"%EMBEDDING_MODEL_DEPLOYMENT_NAME%\") OutputBinding<EmbeddingsStoreOutputResponse> output,\n        final ExecutionContext context) throws MalformedURLException {\n\n        if (request.getBody() == null || request.getBody().getUrl() == null)\n        {\n            throw new IllegalArgumentException(\"Invalid request body. Make sure that you pass in {\\\"Url\\\": value } as the request body.\");\n        }\n\n        Uri uri = new Uri(request.getBody().getUrl());\n        String filename = Paths.get(uri.getPath()).getFileName().toString();\n\n        EmbeddingsStoreOutputResponse embeddingsStoreOutputResponse = new EmbeddingsStoreOutputResponse(new SearchableDocument(filename));\n\n        output.setValue(embeddingsStoreOutputResponse);\n\n        JSONObject response = new JSONObject();\n        response.put(\"status\", \"success\");\n        response.put(\"title\", filename);\n\n        return request.createResponseBuilder(HttpStatus.CREATED)\n                .header(\"Content-Type\", \"application/json\")\n                .body(response)\n                .build();\n    }\n\n    public class EmbeddingsStoreOutputResponse {\n        private SearchableDocument searchableDocument;\n\n        public EmbeddingsStoreOutputResponse(SearchableDocument searchableDocument) {\n            this.searchableDocument = searchableDocument;\n        }\n        public SearchableDocument getSearchableDocument() {\n            return searchableDocument;\n        }\n\n    }\n    \n    @FunctionName(\"PromptFile\")\n    public HttpResponseMessage promptFile(\n        @HttpTrigger(\n            name = \"req\", \n            methods = {HttpMethod.POST},\n            authLevel = AuthorizationLevel.ANONYMOUS)\n            HttpRequestMessage<SemanticSearchRequest> request,\n        @SemanticSearch(name = \"search\", connectionName = \"AISearchEndpoint\", collection = \"openai-index\", query = \"{Prompt}\", chatModel = \"%CHAT_MODEL_DEPLOYMENT_NAME%\", embeddingsModel = \"%EMBEDDING_MODEL_DEPLOYMENT_NAME%\" ) String semanticSearchContext,\n        final ExecutionContext context) {\n            String response = new JSONObject(semanticSearchContext).getString(\"Response\");\n            return request.createResponseBuilder(HttpStatus.OK)\n            .header(\"Content-Type\", \"application/json\")\n            .body(response)\n            .build();        \n    }\n\n    public class EmbeddingsRequest {\n        public String url;\n        public String getUrl() {\n            return url;\n        }\n        public void setUrl(String url) {\n            this.url = url;\n        }\n    }\n\n    public class SemanticSearchRequest {\n        public String prompt;\n        public String getPrompt() {\n            return prompt;\n        }\n        public void setPrompt(String prompt) {\n            this.prompt = prompt;\n        }        \n    }\n}\n"
       }
     }
   ]
