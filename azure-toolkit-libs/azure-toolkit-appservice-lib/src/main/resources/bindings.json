@@ -616,6 +616,29 @@
       "direction": "trigger",
       "enabledInTryMode": true,
       "settings": [
+        {
+          "name": "functionDescription",
+          "value": "string",
+          "required": true,
+          "label": "$assistantSkillTrigger_functionDescription_label",
+          "help": "$assistantSkillTrigger_functionDescription_help"
+        },
+        {
+          "name": "parameterDescriptionJson",
+          "value": "string",
+          "defaultValue": "",
+          "required": false,
+          "label": "$assistantSkillTrigger_parameterDescriptionJson_label",
+          "help": "$assistantSkillTrigger_parameterDescriptionJson_help"
+        },
+        {
+          "name": "model",
+          "value": "string",
+          "defaultValue": "gpt-3.5-turbo",
+          "required": false,
+          "label": "$assistantSkillTrigger_model_label",
+          "help": "$assistantSkillTrigger_model_help"
+        }
       ]
     },
     {
@@ -632,6 +655,43 @@
       "direction": "in",
       "enabledInTryMode": true,
       "settings": [
+        {
+          "name": "id",
+          "value": "string",
+          "required": true,
+          "label": "$assistantPost_id_label",
+          "help": "$assistantPost_id_help"
+        },
+        {
+          "name": "model",
+          "value": "string",
+          "required": true,
+          "label": "$assistantPost_model_label",
+          "help": "$assistantPost_model_help"
+        },
+        {
+          "name": "userMessage",
+          "value": "string",
+          "required": true,
+          "label": "$assistantPost_userMessage_label",
+          "help": "$assistantPost_userMessage_help"
+        },
+        {
+          "name": "chatStorageConnectionSetting",
+          "value": "string",
+          "defaultValue": "AzureWebJobsStorage",
+          "required": false,
+          "label": "$assistantPost_chatStorageConnectionSetting_label",
+          "help": "$assistantPost_chatStorageConnectionSetting_help"
+        },
+        {
+          "name": "collectionName",
+          "value": "string",
+          "defaultValue": "ChatState",
+          "required": false,
+          "label": "$assistantPost_collectionName_label",
+          "help": "$assistantPost_collectionName_help"
+        }
       ]
     },
     {
@@ -640,6 +700,36 @@
       "direction": "in",
       "enabledInTryMode": true,
       "settings": [
+        {
+          "name": "id",
+          "value": "string",
+          "required": true,
+          "label": "$assistantQuery_id_label",
+          "help": "$assistantQuery_id_help"
+        },
+        {
+          "name": "timestampUtc",
+          "value": "string",
+          "required": true,
+          "label": "$assistantQuery_timestampUtc_label",
+          "help": "$assistantQuery_timestampUtc_help"
+        },
+        {
+          "name": "chatStorageConnectionSetting",
+          "value": "string",
+          "defaultValue": "AzureWebJobsStorage",
+          "required": false,
+          "label": "$assistantQuery_chatStorageConnectionSetting_label",
+          "help": "$assistantQuery_chatStorageConnectionSetting_help"
+        },
+        {
+          "name": "collectionName",
+          "value": "string",
+          "defaultValue": "ChatState",
+          "required": false,
+          "label": "$assistantQuery_collectionName_label",
+          "help": "$assistantQuery_collectionName_help"
+        }
       ]
     },
     {
@@ -648,6 +738,44 @@
       "direction": "in",
       "enabledInTryMode": true,
       "settings": [
+        {
+          "name": "model",
+          "value": "string",
+          "defaultValue": "text-embedding-ada-002",
+          "required": false,
+          "label": "$embeddings_model_label",
+          "help": "$embeddings_model_help"
+        },
+        {
+          "name": "maxChunkLength",
+          "value": "int",
+          "defaultValue": 8192,
+          "required": false,
+          "label": "$embeddings_maxChunkLength_label",
+          "help": "$embeddings_maxChunkLength_help"
+        },
+        {
+          "name": "maxOverlap",
+          "value": "int",
+          "defaultValue": 128,
+          "required": false,
+          "label": "$embeddings_maxOverlap_label",
+          "help": "$embeddings_maxOverlap_help"
+        },
+        {
+          "name": "input",
+          "value": "string",
+          "required": true,
+          "label": "$embeddings_input_label",
+          "help": "$embeddings_input_help"
+        },
+        {
+          "name": "inputType",
+          "value": "enum",
+          "required": true,
+          "label": "$embeddings_inputType_label",
+          "help": "$embeddings_inputType_help"
+        }
       ]
     },
     {
@@ -656,6 +784,58 @@
       "direction": "out",
       "enabledInTryMode": true,
       "settings": [
+        {
+          "name": "model",
+          "value": "string",
+          "defaultValue": "text-embedding-ada-002",
+          "required": false,
+          "label": "$embeddingsStore_model_label",
+          "help": "$embeddingsStore_model_help"
+        },
+        {
+          "name": "maxChunkLength",
+          "value": "int",
+          "defaultValue": 8192,
+          "required": false,
+          "label": "$embeddingsStore_maxChunkLength_label",
+          "help": "$embeddingsStore_maxChunkLength_help"
+        },
+        {
+          "name": "maxOverlap",
+          "value": "int",
+          "defaultValue": 128,
+          "required": false,
+          "label": "$embeddingsStore_maxOverlap_label",
+          "help": "$embeddingsStore_maxOverlap_help"
+        },
+        {
+          "name": "input",
+          "value": "string",
+          "required": true,
+          "label": "$embeddingsStore_input_label",
+          "help": "$embeddingsStore_input_help"
+        },
+        {
+          "name": "inputType",
+          "value": "enum",
+          "required": true,
+          "label": "$embeddingsStore_inputType_label",
+          "help": "$embeddingsStore_inputType_help"
+        },
+        {
+          "name": "connectionName",
+          "value": "string",
+          "required": true,
+          "label": "$embeddingsStore_connectionName_label",
+          "help": "$embeddingsStore_connectionName_help"
+        },
+        {
+          "name": "collection",
+          "value": "string",
+          "required": true,
+          "label": "$embeddingsStore_collection_label",
+          "help": "$embeddingsStore_collection_help"
+        }
       ]
     },
     {
@@ -664,6 +844,60 @@
       "direction": "in",
       "enabledInTryMode": true,
       "settings": [
+        {
+          "name": "connectionName",
+          "value": "string",
+          "required": true,
+          "label": "$semanticSearch_connectionName_label",
+          "help": "$semanticSearch_connectionName_help"
+        },
+        {
+          "name": "collection",
+          "value": "string",
+          "required": true,
+          "label": "$semanticSearch_collection_label",
+          "help": "$semanticSearch_collection_help"
+        },
+        {
+          "name": "query",
+          "value": "string",
+          "defaultValue": "",
+          "required": false,
+          "label": "$semanticSearch_query_label",
+          "help": "$semanticSearch_query_help"
+        },
+        {
+          "name": "embeddingsModel",
+          "value": "string",
+          "defaultValue": "text-embedding-ada-002",
+          "required": false,
+          "label": "$semanticSearch_embeddingsModel_label",
+          "help": "$semanticSearch_embeddingsModel_help"
+        },
+        {
+          "name": "chatModel",
+          "value": "string",
+          "defaultValue": "gpt-3.5-turbo",
+          "required": false,
+          "label": "$semanticSearch_chatModel_label",
+          "help": "$semanticSearch_chatModel_help"
+        },
+        {
+          "name": "systemPrompt",
+          "value": "string",
+          "defaultValue": "You are a helpful assistant. You are responding to requests from a user about internal emails and documents.\nYou can and should refer to the internal documents to help respond to requests. If a user makes a request that's\nnot covered by the internal emails and documents, explain that you don't know the answer or that you don't have\naccess to the information.\n\nThe following is a list of documents that you can refer to when answering questions. The documents are in the format\n[filename]: [text] and are separated by newlines. If you answer a question by referencing any of the documents,\nplease cite the document in your answer. For example, if you answer a question by referencing info.txt,\nyou should add \"Reference: info.txt\" to the end of your answer on a separate line.",
+          "required": false,
+          "label": "$semanticSearch_systemPrompt_label",
+          "help": "$semanticSearch_systemPrompt_help"
+        },
+        {
+          "name": "maxKnowledgeLength",
+          "value": "int",
+          "defaultValue": 1,
+          "required": false,
+          "label": "$semanticSearch_maxKnowledgeLength_label",
+          "help": "$semanticSearch_maxKnowledgeLength_help"
+        }
       ]
     },
     {
@@ -672,6 +906,37 @@
       "direction": "in",
       "enabledInTryMode": true,
       "settings": [
+        {
+          "name": "prompt",
+          "value": "string",
+          "required": true,
+          "label": "$textCompletion_prompt_label",
+          "help": "$textCompletion_prompt_help"
+        },
+        {
+          "name": "model",
+          "value": "string",
+          "defaultValue": "gpt-3.5-turbo",
+          "required": false,
+          "label": "$textCompletion_model_label",
+          "help": "$textCompletion_model_help"
+        },
+        {
+          "name": "temperature",
+          "value": "string",
+          "defaultValue": "0.5",
+          "required": false,
+          "label": "$textCompletion_temperature_label",
+          "help": "$textCompletion_temperature_help"
+        },
+        {
+          "name": "topP",
+          "value": "string",
+          "defaultValue": "",
+          "required": false,
+          "label": "$textCompletion_topP_label",
+          "help": "$textCompletion_topP_help"
+        },
       ]
     }
   ]

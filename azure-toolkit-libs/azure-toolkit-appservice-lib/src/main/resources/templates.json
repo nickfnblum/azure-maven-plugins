@@ -607,7 +607,12 @@
         "name": "AssistantSkillTrigger",
         "description": "$AssistantSkillTrigger_description",
         "defaultFunctionName": "assistantSkillTriggerJava",
-        "language": "Java"
+        "language": "Java",
+        "userPrompt": [
+          "functionDescription",
+          "parameterDescriptionJson",
+          "model"
+        ]
       },
       "bundle": ["~4"],
       "function": {
@@ -656,7 +661,11 @@
         "name": "AssistantQuery",
         "description": "$AssistantQuery_description",
         "defaultFunctionName": "assistantQueryJava",
-        "language": "Java"
+        "language": "Java",
+        "userPrompt": [
+          "id",
+          "timestampUtc"
+        ]
       },
       "bundle": ["~4"],
       "function": {
@@ -681,7 +690,12 @@
         "name": "AssistantPost",
         "description": "$AssistantPost_description",
         "defaultFunctionName": "assistantPostJava",
-        "language": "Java"
+        "language": "Java",
+        "userPrompt": [
+          "id",
+          "model",
+          "userMessage"
+        ]
       },
       "bundle": ["~4"],
       "function": {
@@ -707,7 +721,14 @@
         "name": "EmbeddingsStoreOutput",
         "description": "$EmbeddingsStoreOutput_description",
         "defaultFunctionName": "embeddingsStoreOutputJava",
-        "language": "Java"
+        "language": "Java",
+        "userPrompt": [
+          "model",
+          "input",
+          "inputType",
+          "connectionName",
+          "collection"
+        ]
       },
       "bundle": ["~4"],
       "function": {
@@ -735,7 +756,11 @@
         "name": "EmbeddingsInput",
         "description": "$EmbeddingsInput_description",
         "defaultFunctionName": "embeddingsInputJava",
-        "language": "Java"
+        "language": "Java",
+        "userPrompt": [
+          "input",
+          "inputType"
+        ]
       },
       "bundle": ["~4"],
       "function": {
@@ -762,7 +787,10 @@
         "name": "TextCompletion",
         "description": "$TextCompletion_description",
         "defaultFunctionName": "textCompletionJava",
-        "language": "Java"
+        "language": "Java",
+        "userPrompt": [
+          "model"
+        ]
       },
       "bundle": ["~4"],
       "function": {
@@ -787,7 +815,11 @@
         "name": "SemanticSearch",
         "description": "$SemanticSearch_description",
         "defaultFunctionName": "semanticSearchJava",
-        "language": "Java"
+        "language": "Java",
+        "userPrompt": [
+          "connectionName",
+          "collection"
+        ]
       },
       "bundle": ["~4"],
       "function": {
