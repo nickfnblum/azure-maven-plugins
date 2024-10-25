@@ -936,7 +936,7 @@
           "required": false,
           "label": "$textCompletion_topP_label",
           "help": "$textCompletion_topP_help"
-        },
+        }
       ]
     }
   ]
