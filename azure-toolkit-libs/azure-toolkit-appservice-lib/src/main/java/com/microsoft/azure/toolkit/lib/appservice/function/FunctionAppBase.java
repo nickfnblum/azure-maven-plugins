@@ -11,6 +11,7 @@ import com.azure.core.http.HttpPipeline;
 import com.azure.core.http.HttpRequest;
 import com.azure.core.http.HttpResponse;
 import com.azure.core.management.serializer.SerializerFactory;
+import com.azure.core.util.serializer.JacksonAdapter;
 import com.azure.core.util.serializer.SerializerAdapter;
 import com.azure.core.util.serializer.SerializerEncoding;
 import com.azure.resourcemanager.appservice.AppServiceManager;
@@ -19,6 +20,8 @@ import com.azure.resourcemanager.appservice.models.JavaVersion;
 import com.azure.resourcemanager.appservice.models.PlatformArchitecture;
 import com.azure.resourcemanager.appservice.models.WebAppBase;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.MapperFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.microsoft.azure.toolkit.lib.appservice.AppServiceAppBase;
 import com.microsoft.azure.toolkit.lib.appservice.deploy.FTPFunctionDeployHandler;
@@ -233,13 +236,20 @@ public abstract class FunctionAppBase<T extends FunctionAppBase<T, P, F>, P exte
             .setHeader(HttpHeaderName.CONTENT_TYPE, "application/json");
         try (final HttpResponse block = httpPipeline.send(request).block()) {
             final String content = Optional.ofNullable(block).map(HttpResponse::getBodyAsString).map(Mono::block).orElse(StringUtils.EMPTY);
-            final SerializerAdapter adapter = SerializerFactory.createDefaultManagementSerializerAdapter();
+            final SerializerAdapter adapter = new JacksonAdapter(this::configureSerialization);
             final ObjectNode functionNode = adapter.deserialize(content, ObjectNode.class, SerializerEncoding.JSON);
             final JsonNode configNode = Optional.ofNullable(functionNode.get("properties")).map(propertiesNode -> propertiesNode.get("functionAppConfig")).orElse(null);
             return Objects.isNull(configNode) ? null : adapter.deserialize(configNode.toPrettyString(), FunctionAppConfig.class, SerializerEncoding.JSON);
         } catch (Throwable t) {
             return null;
         }
+    }
+
+    // workaround to fix case issue from function service
+    // todo: migrate to sdk instead of raw request
+    private void configureSerialization(ObjectMapper outerMapper, ObjectMapper innerMapper) {
+        outerMapper.configure(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS, true);
+        innerMapper.configure(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS, true);
     }
 
     public String getRawRequestEndpoint(@Nonnull com.azure.resourcemanager.appservice.models.WebAppBase functionApp) {
