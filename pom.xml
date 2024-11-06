@@ -54,6 +54,7 @@
         <module>azure-spring-apps-maven-plugin</module>
         <module>azure-appservice-maven-plugin-lib</module>
         <module>azure-sdk-build-tool-maven-plugin</module>
+        <module>azure-container-apps-maven-plugin</module>
     </modules>
 
     <properties>

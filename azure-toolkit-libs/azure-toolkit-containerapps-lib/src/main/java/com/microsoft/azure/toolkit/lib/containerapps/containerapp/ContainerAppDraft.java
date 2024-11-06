@@ -7,7 +7,6 @@ package com.microsoft.azure.toolkit.lib.containerapps.containerapp;
 
 import com.azure.resourcemanager.appcontainers.implementation.ContainerAppImpl;
 import com.azure.resourcemanager.appcontainers.models.ActiveRevisionsMode;
-import com.azure.resourcemanager.appcontainers.models.BuildResource;
 import com.azure.resourcemanager.appcontainers.models.Configuration;
 import com.azure.resourcemanager.appcontainers.models.Container;
 import com.azure.resourcemanager.appcontainers.models.ContainerApps;
@@ -17,6 +16,7 @@ import com.azure.resourcemanager.appcontainers.models.RegistryCredentials;
 import com.azure.resourcemanager.appcontainers.models.Scale;
 import com.azure.resourcemanager.appcontainers.models.Secret;
 import com.azure.resourcemanager.appcontainers.models.Template;
+import com.azure.resourcemanager.containerregistry.models.OverridingArgument;
 import com.azure.resourcemanager.containerregistry.models.RegistryTaskRun;
 import com.google.common.collect.Sets;
 import com.microsoft.azure.toolkit.lib.Azure;
@@ -46,19 +46,24 @@ import com.microsoft.azure.toolkit.lib.containerregistry.ContainerRegistry;
 import com.microsoft.azure.toolkit.lib.containerregistry.ContainerRegistryDraft;
 import com.microsoft.azure.toolkit.lib.containerregistry.model.Sku;
 import com.microsoft.azure.toolkit.lib.resource.ResourceGroup;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -71,6 +76,8 @@ import java.util.stream.Collectors;
 import static com.microsoft.azure.toolkit.lib.containerregistry.ContainerRegistry.ACR_IMAGE_SUFFIX;
 
 public class ContainerAppDraft extends ContainerApp implements AzResource.Draft<ContainerApp, com.azure.resourcemanager.appcontainers.models.ContainerApp> {
+    private static final String sourceDockerFilePath = "template/aca/source-dockerfile";
+    private static final String artifactDockerFilePath = "template/aca/artifact-dockerfile";
 
     @Getter
     @Nullable
@@ -129,12 +136,22 @@ public class ContainerAppDraft extends ContainerApp implements AzResource.Draft<
             .withTemplate(template)
             .withWorkloadProfileName(workloadProfile)
             .create();
-        final Action<ContainerApp> updateImage = AzureActionManager.getInstance().getAction(ContainerApp.UPDATE_IMAGE).bind(this);
-        final Action<ContainerApp> browse = AzureActionManager.getInstance().getAction(ContainerApp.BROWSE).bind(this);
+        final Action<ContainerApp> updateImage = Optional.ofNullable(AzureActionManager.getInstance().getAction(ContainerApp.UPDATE_IMAGE))
+            .map(action -> action.bind(this))
+            .orElse(null);
+        final Action<ContainerApp> browse = Optional.ofNullable(AzureActionManager.getInstance().getAction(ContainerApp.BROWSE))
+            .map(action -> action.bind(this))
+            .orElse(null);
+
         AzureMessager.getMessager().success(AzureString.format("Azure Container App({0}) is successfully created.", this.getName()), browse, updateImage);
 
-        final Action<String> learnMore = AzureActionManager.getInstance().getAction(Action.OPEN_URL).withLabel("Learn More").bind("https://aka.ms/azuretools-aca-stack");
-        final Action<String> openPortal = AzureActionManager.getInstance().getAction(Action.OPEN_URL).withLabel("Open Portal").bind(this.getPortalUrl());
+        final Action<String> learnMore = Optional.ofNullable(AzureActionManager.getInstance().getAction(Action.OPEN_URL).withLabel("Learn More"))
+            .map(action -> action.bind("https://aka.ms/azuretools-aca-stack"))
+            .orElse(null);
+
+        final Action<String> openPortal = Optional.ofNullable(AzureActionManager.getInstance().getAction(Action.OPEN_URL).withLabel("Open Portal"))
+            .map(action -> action.bind(this.getPortalUrl()))
+            .orElse(null);
         AzureMessager.getMessager().info("Azure container apps offers an automatic memory fitting experience for Java developers. To take advantage of this Java-optimized feature, please set your development stack to `Java` in the portal.", learnMore, openPortal);
         return result;
     }
@@ -185,7 +202,9 @@ public class ContainerAppDraft extends ContainerApp implements AzResource.Draft<
         update.withConfiguration(configuration);
         messager.progress(AzureString.format("Updating Container App({0})...", getName()));
         final com.azure.resourcemanager.appcontainers.models.ContainerApp result = update.apply();
-        final Action<ContainerApp> browse = AzureActionManager.getInstance().getAction(ContainerApp.BROWSE).bind(this);
+        final Action<ContainerApp> browse = Optional.ofNullable(AzureActionManager.getInstance().getAction(ContainerApp.BROWSE))
+            .map(action -> action.bind(this))
+            .orElse(null);
         messager.success(AzureString.format("Container App({0}) is successfully updated.", getName()), browse);
         if (isImageModified) {
             AzureTaskManager.getInstance().runOnPooledThread(() -> this.getRevisionModule().refresh());
@@ -226,31 +245,27 @@ public class ContainerAppDraft extends ContainerApp implements AzResource.Draft<
         OperationContext.action().setTelemetryProperty("hasDockerFile", String.valueOf(imageConfig.sourceHasDockerFile()));
         final BuildImageConfig buildConfig = Objects.requireNonNull(imageConfig.getBuildImageConfig());
         final String fullImageName;
+        Path tempFolder = null;
         if (imageConfig.sourceHasDockerFile()) {
             // ACR Task is the only way we have for now to build a Dockerfile using Docker.
             AzureMessager.getMessager().warning("Dockerfile detected. Running the build through ACR.");
-            final ContainerRegistry registry = getOrCreateRegistry(imageConfig);
-            tarSourceIfNeeded(buildConfig);
-            final RegistryTaskRun run = registry.buildImage(imageConfig.getAcrImageNameWithTag(), buildConfig.getSource());
-            if (Objects.isNull(run)) {
-                throw new AzureToolkitRuntimeException("ACR is not ready, Failed to build image through ACR.");
-            }
-            fullImageName = registry.waitForImageBuilding(run);
+            fullImageName = buildThroughACR(imageConfig, buildConfig);
         } else {
             OperationContext.action().setTelemetryProperty("isDirectory", String.valueOf(Files.isDirectory(buildConfig.source)));
             if (Files.isDirectory(buildConfig.source)) {
-                AzureMessager.getMessager().warning("No Dockerfile detected. Building container image from source code through Container Apps cloud build.");
+                AzureMessager.getMessager().warning("No Dockerfile detected. Running the build through ACR with a generated Dockerfile.");
+                generateDockerfile(buildConfig, sourceDockerFilePath);
             } else {
-                AzureMessager.getMessager().warning("Building container image from artifact through Container Apps cloud build.");
+                AzureMessager.getMessager().warning("Building container image from artifact through ACR with a generated Dockerfile.");
+                tempFolder = generateTempFolder(buildConfig);
             }
-            final ContainerAppsEnvironment environment = Objects.requireNonNull(this.getManagedEnvironment());
-            tarSourceIfNeeded(buildConfig);
-            final BuildResource build = environment.buildImage(buildConfig.getSource(), buildConfig.sourceBuildEnv);
-            fullImageName = environment.waitForImageBuilding(build);
+            fullImageName = buildThroughACR(imageConfig, buildConfig);
         }
+        deleteTempFolder(tempFolder);
         if (StringUtils.isNotBlank(fullImageName)) {
             imageConfig.setFullImageName(fullImageName);
         }
+
     }
 
     private static void tarSourceIfNeeded(final BuildImageConfig buildConfig) {
@@ -260,6 +275,76 @@ public class ContainerAppDraft extends ContainerApp implements AzResource.Draft<
             final Path sourceTar = Utils.tar(buildConfig.source, (path) -> ignored.contains(path.getFileName().toString()));
             buildConfig.setSource(sourceTar);
         }
+    }
+
+    private String buildThroughACR(final ImageConfig imageConfig, final BuildImageConfig buildConfig) {
+        Map<String, OverridingArgument> overridingArguments = Optional.ofNullable(imageConfig.getBuildImageConfig())
+            .map(BuildImageConfig::getSourceBuildEnv)
+            .orElse(Collections.emptyMap())
+            .entrySet().stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, e -> new OverridingArgument(e.getValue(), false)));
+        final ContainerRegistry registry = getOrCreateRegistry(imageConfig);
+        tarSourceIfNeeded(buildConfig);
+        final RegistryTaskRun run = registry.buildImage(imageConfig.getAcrImageNameWithTag(), buildConfig.getSource(), "./Dockerfile", overridingArguments);
+        if (Objects.isNull(run)) {
+            throw new AzureToolkitRuntimeException("ACR is not ready, Failed to build image through ACR.");
+        }
+        return registry.waitForImageBuilding(run);
+    }
+
+    private static void deleteTempFolder(Path tempFolder) {
+        if (Objects.isNull(tempFolder)) {
+            return;
+        }
+        try {
+            FileUtils.deleteDirectory(tempFolder.toFile());
+        } catch (IOException e) {
+            throw new AzureToolkitRuntimeException("Failed to delete temporary directory: " + tempFolder, e);
+        }
+    }
+
+    private static void generateDockerfile(final BuildImageConfig buildConfig, String templatePath) {
+        Path destination = buildConfig.source.resolve("Dockerfile");
+        // Path to the Dockerfile inside the resources/template folder
+        // Load the Dockerfile from the resources
+        InputStream inputStream = ContainerAppDraft.class.getClassLoader().getResourceAsStream(templatePath);
+        if (inputStream == null) {
+            throw new AzureToolkitRuntimeException("Template dockerfile not found in the resources: " + templatePath);
+        }
+        // Copy the Dockerfile to the destination path
+        try {
+            Files.copy(inputStream, destination, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            throw new AzureToolkitRuntimeException("Failed to copy Dockerfile to the destination path: " + destination, e);
+        }
+        AzureMessager.getMessager().info("Dockerfile generated successfully to: " + destination);
+    }
+
+    private static Path generateTempFolder(final BuildImageConfig buildConfig) {
+        // Create a temporary directory and handle resources
+        Path tempDir = null;
+        try {
+            // Step 1: Create a temporary directory
+            tempDir = Files.createTempDirectory(String.format("aca-maven-plugin-%s", Utils.getTimestamp()));
+            AzureMessager.getMessager().info("Temporary directory created: " + tempDir);
+
+            // Step 2: Copy Jar to the temporary directory
+            Path sourceFile = buildConfig.getSource();  // replace with your file path
+            Path targetFile = tempDir.resolve("app.jar");
+            Files.copy(sourceFile, targetFile, StandardCopyOption.REPLACE_EXISTING);
+            AzureMessager.getMessager().info("File copied to temporary directory: " + targetFile);
+
+            buildConfig.setSource(tempDir);
+
+            generateDockerfile(buildConfig, artifactDockerFilePath);
+
+        } catch (IOException e) {
+            if (Objects.nonNull(tempDir)) {
+                deleteTempFolder(tempDir);
+            }
+            throw new AzureToolkitRuntimeException("Failed to create temporary directory and copy artifact", e);
+        }
+        return tempDir;
     }
 
     @Nonnull
@@ -492,6 +577,8 @@ public class ContainerAppDraft extends ContainerApp implements AzResource.Draft<
 
     @Getter
     @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     @EqualsAndHashCode(onlyExplicitlyIncluded = true)
     public static class ScaleConfig {
         @EqualsAndHashCode.Include

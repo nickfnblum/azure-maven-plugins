@@ -10,6 +10,7 @@ import com.azure.resourcemanager.containerregistry.ContainerRegistryManager;
 import com.azure.resourcemanager.containerregistry.fluent.models.RegistryInner;
 import com.azure.resourcemanager.containerregistry.models.AccessKeyType;
 import com.azure.resourcemanager.containerregistry.models.ImageDescriptor;
+import com.azure.resourcemanager.containerregistry.models.OverridingArgument;
 import com.azure.resourcemanager.containerregistry.models.ProvisioningState;
 import com.azure.resourcemanager.containerregistry.models.PublicNetworkAccess;
 import com.azure.resourcemanager.containerregistry.models.Registry;
@@ -41,6 +42,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -140,6 +142,11 @@ public class ContainerRegistry extends AbstractAzResource<ContainerRegistry, Azu
      */
     @Nullable
     public RegistryTaskRun buildImage(final String imageNameWithTag, final Path sourceTar) {
+        return buildImage(imageNameWithTag, sourceTar, "./Dockerfile", Collections.emptyMap());
+    }
+
+    @Nullable
+    public RegistryTaskRun buildImage(final String imageNameWithTag, final Path sourceTar, final String dockerFilePath, final Map<String, OverridingArgument> buildArguments) {
         return this.remoteOptional().map(r -> {
             // upload tar.gz file
             AzureMessager.getMessager().progress(AzureString.format("Uploading compressed source code to Registry '%s'.", this.getName()));
@@ -150,7 +157,8 @@ public class ContainerRegistry extends AbstractAzResource<ContainerRegistry, Azu
             AzureMessager.getMessager().progress(AzureString.format("Building image '%s' in Registry '%s'.", imageNameWithTag, this.getName()));
             return r.scheduleRun().withLinux().withDockerTaskRunRequest()
                 .defineDockerTaskStep()
-                .withDockerFilePath("./Dockerfile")
+                .withDockerFilePath(dockerFilePath)
+                .withOverridingArguments(buildArguments)
                 .withImageNames(Collections.singletonList(imageNameWithTag))
                 .withPushEnabled(true)
                 .attach()
@@ -172,8 +180,9 @@ public class ContainerRegistry extends AbstractAzResource<ContainerRegistry, Azu
         final Action<String> openUrl = AzureActionManager.getInstance().getAction(Action.OPEN_URL);
         final Action<String> viewLogInBrowser = openUrl.bind(logSasUrl).withLabel("Open streaming logs in browser");
         final RegistryTaskRunStreamingLog urlStreamingLog = RegistryTaskRunStreamingLog.builder().logSasUrl(logSasUrl).task(run).build();
-        final Action<StreamingLogSupport> viewLogInToolkit = AzureActionManager.getInstance().getAction(StreamingLogSupport.OPEN_STREAMING_LOG)
-            .bind(urlStreamingLog).withLabel("Open streaming logs");
+        final Action<StreamingLogSupport> viewLogInToolkit = Optional.ofNullable(AzureActionManager.getInstance().getAction(StreamingLogSupport.OPEN_STREAMING_LOG))
+            .map(action -> action.bind(urlStreamingLog).withLabel("Open streaming logs"))
+            .orElse(null);
         AzureMessager.getMessager().info(AzureString.format("Waiting for image building task run (%s) to be completed...", run.runId()), viewLogInToolkit, viewLogInBrowser);
         RunStatus status = run.status();
         while (waitingStatus.contains(status)) {
