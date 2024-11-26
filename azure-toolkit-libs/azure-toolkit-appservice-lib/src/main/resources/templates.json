@@ -735,7 +735,7 @@
         "disabled": false,
         "bindings": [
           {
-            "type": "embeddingsStoreOutput",
+            "type": "embeddingsStore",
             "name": "output",
             "direction": "out",
             "input": "{Url}",
@@ -767,7 +767,7 @@
         "disabled": false,
         "bindings": [
           {
-            "type": "embeddingsInput",
+            "type": "embeddings",
             "name": "input",
             "direction": "in",
             "input": "{RawText}",
