@@ -119,6 +119,9 @@
     "daprTopicTrigger_displayName": "Dapr topic trigger",
 
     "assistantSkillTrigger_displayName": "Assistant Skill Trigger",
+    "assistantSkillTrigger_name_label": "Trigger binding name",
+    "assistantSkillTrigger_name_help": "Name used to identify trigger in code",
+    "assistantSkillTrigger_name_errorText": "The name must start with a letter, and it can contain only letters and numbers. The name must be 1 to 127 characters.",
     "assistantSkillTrigger_functionDescription_label": "Function Description",
     "assistantSkillTrigger_functionDescription_help": "Description of the function to be triggered.",
     "assistantSkillTrigger_parameterDescriptionJson_label": "Parameter Description JSON",
@@ -127,6 +130,9 @@
     "assistantSkillTrigger_model_help": "The OpenAI chat model to use.",
 
     "assistantCreate_displayName": "Assistant Create",
+    "assistantCreate_name_label": "Trigger binding name",
+    "assistantCreate_name_help": "Name used to identify trigger in code",
+    "assistantCreate_name_errorText": "The name must start with a letter, and it can contain only letters and numbers. The name must be 1 to 127 characters.",
 
     "assistantQuery_displayName": "Assistant Query",
     "assistantQuery_id_label": "ID",
@@ -137,6 +143,9 @@
     "assistantQuery_chatStorageConnectionSetting_help": "The configuration section name for the table settings for assistant chat storage.",
     "assistantQuery_collectionName_label": "Collection Name",
     "assistantQuery_collectionName_help": "The table collection name for assistant chat storage.",
+    "assistantQuery_name_label": "Trigger binding name",
+    "assistantQuery_name_help": "Name used to identify trigger in code",
+    "assistantQuery_name_errorText": "The name must start with a letter, and it can contain only letters and numbers. The name must be 1 to 127 characters.",
 
     "assistantPost_displayName": "Assistant Post",
     "assistantPost_id_label": "ID",
@@ -149,6 +158,9 @@
     "assistantPost_chatStorageConnectionSetting_help": "The configuration section name for the table settings for assistant chat storage.",
     "assistantPost_collectionName_label": "Collection Name",
     "assistantPost_collectionName_help": "The table collection name for assistant chat storage.",
+    "assistantPost_name_label": "Trigger binding name",
+    "assistantPost_name_help": "Name used to identify trigger in code",
+    "assistantPost_name_errorText": "The name must start with a letter, and it can contain only letters and numbers. The name must be 1 to 127 characters.",
 
     "embeddings_displayName": "Embeddings Input",
     "embeddings_model_label": "Model",
@@ -161,6 +173,9 @@
     "embeddings_input_help": "The input string to generate embeddings for.",
     "embeddings_inputType_label": "Input Type",
     "embeddings_inputType_help": "The input type.",
+    "embeddings_name_label": "Trigger binding name",
+    "embeddings_name_help": "Name used to identify trigger in code",
+    "embeddings_name_errorText": "The name must start with a letter, and it can contain only letters and numbers. The name must be 1 to 127 characters.",
 
     "embeddingsStore_displayName": "Embeddings Store Output",
     "embeddingsStore_model_label": "Model",
@@ -177,6 +192,9 @@
     "embeddingsStore_connectionName_help": "The name of an app setting or environment variable which contains a connection string value.",
     "embeddingsStore_collection_label": "Collection",
     "embeddingsStore_collection_help": "The name of the collection or table to search.",
+    "embeddingsStore_name_label": "Trigger binding name",
+    "embeddingsStore_name_help": "Name used to identify trigger in code",
+    "embeddingsStore_name_errorText": "The name must start with a letter, and it can contain only letters and numbers. The name must be 1 to 127 characters.",
 
     "semanticSearch_displayName": "Semantic Search",
     "semanticSearch_connectionName_label": "Connection Name",
@@ -193,6 +211,9 @@
     "semanticSearch_systemPrompt_help": "The system prompt to use for prompting the large language model.",
     "semanticSearch_maxKnowledgeLength_label": "Max Knowledge Length",
     "semanticSearch_maxKnowledgeLength_help": "The number of knowledge items to inject into the systemPrompt.",
+    "semanticSearch_name_label": "Trigger binding name",
+    "semanticSearch_name_help": "Name used to identify trigger in code",
+    "semanticSearch_name_errorText": "The name must start with a letter, and it can contain only letters and numbers. The name must be 1 to 127 characters.",
 
     "textCompletion_displayName": "Text Completion",
     "textCompletion_prompt_label": "Prompt",
@@ -202,6 +223,9 @@
     "textCompletion_temperature_label": "Temperature",
     "textCompletion_temperature_help": "The sampling temperature to use, between 0 and 2.",
     "textCompletion_topP_label": "Top P",
-    "textCompletion_topP_help": "The top_p probability mass to consider."
+    "textCompletion_topP_help": "The top_p probability mass to consider.",
+    "textCompletion_name_label": "Trigger binding name",
+    "textCompletion_name_help": "Name used to identify trigger in code",
+    "textCompletion_name_errorText": "The name must start with a letter, and it can contain only letters and numbers. The name must be 1 to 127 characters."
   }
 }
