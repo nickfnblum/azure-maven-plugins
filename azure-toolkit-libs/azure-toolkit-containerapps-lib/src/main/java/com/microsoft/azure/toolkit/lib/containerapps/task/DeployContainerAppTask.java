@@ -127,7 +127,7 @@ public class DeployContainerAppTask extends AzureTask<ContainerApp> {
     }
 
     @Override
-    @AzureOperation(name = "internal/containerapps.create_update_app.app", params = {"config.getAppName()"})
+    @AzureOperation(name = "internal/containerapps.create_update_app.app", params = {"this.config.getAppName()"})
     public ContainerApp doExecute()  throws Exception {
         for (final AzureTask<?> t : this.subTasks) {
             t.getBody().call();
