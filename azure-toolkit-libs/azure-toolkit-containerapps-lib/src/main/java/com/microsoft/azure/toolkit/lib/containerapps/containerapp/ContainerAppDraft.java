@@ -5,6 +5,9 @@
 
 package com.microsoft.azure.toolkit.lib.containerapps.containerapp;
 
+import com.azure.core.management.serializer.SerializerFactory;
+import com.azure.core.util.serializer.SerializerAdapter;
+import com.azure.core.util.serializer.SerializerEncoding;
 import com.azure.resourcemanager.appcontainers.implementation.ContainerAppImpl;
 import com.azure.resourcemanager.appcontainers.models.ActiveRevisionsMode;
 import com.azure.resourcemanager.appcontainers.models.Configuration;
@@ -12,10 +15,15 @@ import com.azure.resourcemanager.appcontainers.models.Container;
 import com.azure.resourcemanager.appcontainers.models.ContainerApps;
 import com.azure.resourcemanager.appcontainers.models.ContainerResources;
 import com.azure.resourcemanager.appcontainers.models.EnvironmentVar;
+import com.azure.resourcemanager.appcontainers.models.ManagedServiceIdentity;
+import com.azure.resourcemanager.appcontainers.models.ManagedServiceIdentityType;
 import com.azure.resourcemanager.appcontainers.models.RegistryCredentials;
 import com.azure.resourcemanager.appcontainers.models.Scale;
 import com.azure.resourcemanager.appcontainers.models.Secret;
 import com.azure.resourcemanager.appcontainers.models.Template;
+import com.azure.resourcemanager.appcontainers.models.UserAssignedIdentity;
+import com.azure.resourcemanager.authorization.AuthorizationManager;
+import com.azure.resourcemanager.authorization.models.RoleAssignment;
 import com.azure.resourcemanager.containerregistry.models.OverridingArgument;
 import com.azure.resourcemanager.containerregistry.models.RegistryTaskRun;
 import com.google.common.collect.Sets;
@@ -45,6 +53,8 @@ import com.microsoft.azure.toolkit.lib.containerregistry.AzureContainerRegistryM
 import com.microsoft.azure.toolkit.lib.containerregistry.ContainerRegistry;
 import com.microsoft.azure.toolkit.lib.containerregistry.ContainerRegistryDraft;
 import com.microsoft.azure.toolkit.lib.containerregistry.model.Sku;
+import com.microsoft.azure.toolkit.lib.identities.AzureManagedIdentity;
+import com.microsoft.azure.toolkit.lib.identities.Identity;
 import com.microsoft.azure.toolkit.lib.resource.ResourceGroup;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -71,6 +81,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static com.microsoft.azure.toolkit.lib.containerregistry.ContainerRegistry.ACR_IMAGE_SUFFIX;
@@ -78,6 +89,7 @@ import static com.microsoft.azure.toolkit.lib.containerregistry.ContainerRegistr
 public class ContainerAppDraft extends ContainerApp implements AzResource.Draft<ContainerApp, com.azure.resourcemanager.appcontainers.models.ContainerApp> {
     private static final String sourceDockerFilePath = "template/aca/source-dockerfile";
     private static final String artifactDockerFilePath = "template/aca/artifact-dockerfile";
+    public static final String ACR_PULL_ROLE_ID = "7f951dda-4ed3-4680-a7ca-43fe172d538d";
 
     @Getter
     @Nullable
@@ -135,6 +147,7 @@ public class ContainerAppDraft extends ContainerApp implements AzResource.Draft<
             .withConfiguration(configuration)
             .withTemplate(template)
             .withWorkloadProfileName(workloadProfile)
+            .withIdentity(ensureMIAndACRPermission(imageConfig))
             .create();
         final Action<ContainerApp> updateImage = Optional.ofNullable(AzureActionManager.getInstance().getAction(ContainerApp.UPDATE_IMAGE))
             .map(action -> action.bind(this))
@@ -192,6 +205,10 @@ public class ContainerAppDraft extends ContainerApp implements AzResource.Draft<
             }
         }
         update.withConfiguration(configuration);
+        ManagedServiceIdentity identity = ensureMIAndACRPermission(imageConfig);
+        if (Objects.nonNull(identity)) {
+            update.withIdentity(identity);
+        }
         messager.progress(AzureString.format("Updating Container App({0})...", getName()));
         final com.azure.resourcemanager.appcontainers.models.ContainerApp result = update.apply();
         final Action<ContainerApp> browse = Optional.ofNullable(AzureActionManager.getInstance().getAction(ContainerApp.BROWSE))
@@ -402,10 +419,12 @@ public class ContainerAppDraft extends ContainerApp implements AzResource.Draft<
     private static Secret getSecret(final ImageConfig config) {
         final ContainerRegistry registry = config.getContainerRegistry();
         if (Objects.nonNull(registry)) {
-            final String password = Optional.ofNullable(registry.getPrimaryCredential()).orElseGet(registry::getSecondaryCredential);
-            final String passwordKey = Objects.equals(password, registry.getPrimaryCredential()) ? "password" : "password2";
-            final String passwordName = String.format("%s-%s", registry.getName().toLowerCase(), passwordKey);
-            return new Secret().withName(passwordName).withValue(password);
+            if (StringUtils.isEmpty(config.identity)) {
+                final String password = Optional.ofNullable(registry.getPrimaryCredential()).orElseGet(registry::getSecondaryCredential);
+                final String passwordKey = Objects.equals(password, registry.getPrimaryCredential()) ? "password" : "password2";
+                final String passwordName = String.format("%s-%s", registry.getName().toLowerCase(), passwordKey);
+                return new Secret().withName(passwordName).withValue(password);
+            }
         }
         return null;
     }
@@ -414,13 +433,72 @@ public class ContainerAppDraft extends ContainerApp implements AzResource.Draft<
     private static RegistryCredentials getRegistryCredential(final ImageConfig config) {
         final ContainerRegistry registry = config.getContainerRegistry();
         if (Objects.nonNull(registry)) {
-            final String username = registry.getUserName();
-            final String password = Optional.ofNullable(registry.getPrimaryCredential()).orElseGet(registry::getSecondaryCredential);
-            final String passwordKey = Objects.equals(password, registry.getPrimaryCredential()) ? "password" : "password2";
-            final String passwordName = String.format("%s-%s", registry.getName().toLowerCase(), passwordKey);
-            return new RegistryCredentials().withServer(registry.getLoginServerUrl()).withUsername(username).withPasswordSecretRef(passwordName);
+            if (StringUtils.isEmpty(config.identity)) {
+                final String username = registry.getUserName();
+                final String password = Optional.ofNullable(registry.getPrimaryCredential()).orElseGet(registry::getSecondaryCredential);
+                final String passwordKey = Objects.equals(password, registry.getPrimaryCredential()) ? "password" : "password2";
+                final String passwordName = String.format("%s-%s", registry.getName().toLowerCase(), passwordKey);
+                return new RegistryCredentials().withServer(registry.getLoginServerUrl()).withUsername(username).withPasswordSecretRef(passwordName);
+            } else if (StringUtils.equalsIgnoreCase(config.identity, "system")) {
+                return new RegistryCredentials().withServer(registry.getLoginServerUrl()).withIdentity("system");
+            } else {
+                return new RegistryCredentials().withServer(registry.getLoginServerUrl()).withIdentity(config.identity);
+            }
         }
         return null;
+    }
+
+    // Only user assigned identity will be returned, and it will be added to the container app.
+    // System assigned identity should be enabled before using it to pull acr image. So no need to return it here.
+    @Nullable
+    private ManagedServiceIdentity ensureMIAndACRPermission(ImageConfig imageConfig) {
+        if (StringUtils.isBlank(imageConfig.getIdentity())) {
+            return null;
+        }
+        if (StringUtils.equalsIgnoreCase(imageConfig.getIdentity(), "system")) {
+            String principalId = Optional.ofNullable(this.origin)
+                .map(ContainerApp::getIdentity)
+                .filter(identity -> identity.type().equals(ManagedServiceIdentityType.SYSTEM_ASSIGNED) || identity.type().equals(ManagedServiceIdentityType.SYSTEM_ASSIGNED_USER_ASSIGNED))
+                .map(identity -> identity.principalId().toString())
+                .orElseThrow(() -> new AzureToolkitRuntimeException("System managed identity should be enabled before using to pull acr image."));
+            grantACRPullPermissionToIdentity(imageConfig, principalId);
+            return null;
+        }
+        try {
+            Identity identity = Azure.az(AzureManagedIdentity.class).getById(imageConfig.getIdentity());
+            grantACRPullPermissionToIdentity(imageConfig, identity.getPrincipalId());
+            return new ManagedServiceIdentity().withType(ManagedServiceIdentityType.USER_ASSIGNED).withUserAssignedIdentities(Collections.singletonMap(identity.getId(), new UserAssignedIdentity()));
+        } catch (Exception e) {
+            throw new AzureToolkitRuntimeException("Failed to get Registry Identity.", e);
+        }
+
+    }
+
+    private void grantACRPullPermissionToIdentity(ImageConfig imageConfig, String identityPrincipalId) {
+        final String scope = imageConfig.getContainerRegistry().getId();
+        final RoleAssignment existingAssignment = getExistingRoleAssignment(identityPrincipalId, scope);
+        final String roleDefinitionId = String.format("/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions/%s", getSubscriptionId(), ACR_PULL_ROLE_ID);
+        if (Objects.nonNull(existingAssignment)) {
+            AzureMessager.getMessager().info("ACR pull permission already granted to the identity.");
+            return;
+        }
+        final AuthorizationManager authorizationManager = this.getAuthorizationManager();
+        final String roleAssignmentName = UUID.randomUUID().toString();
+        authorizationManager.roleAssignments().define(roleAssignmentName)
+            .forObjectId(identityPrincipalId)
+            .withRoleDefinition(roleDefinitionId)
+            .withScope(scope).create();
+        AzureMessager.getMessager().info("ACR pull permission granted to the identity.");
+    }
+
+    private RoleAssignment getExistingRoleAssignment(final String identityId, final String scope) {
+        final AuthorizationManager authorizationManager = this.getAuthorizationManager();
+        final String roleDefinitionId = String.format("/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions/%s", getSubscriptionId(), ACR_PULL_ROLE_ID);
+        return authorizationManager.roleAssignments()
+            .listByScope(scope).stream()
+            .filter(assignment -> StringUtils.equalsIgnoreCase(assignment.principalId(), identityId) &&
+                StringUtils.equalsIgnoreCase(assignment.roleDefinitionId(), roleDefinitionId))
+            .findFirst().orElse(null);
     }
 
     @Nonnull
@@ -516,6 +594,8 @@ public class ContainerAppDraft extends ContainerApp implements AzResource.Draft<
         private List<EnvironmentVar> environmentVariables = new ArrayList<>();
         @Nullable
         private BuildImageConfig buildImageConfig;
+        @Nullable
+        private String identity;
 
         public ImageConfig(@Nonnull String fullImageName) {
             this.fullImageName = fullImageName;
