@@ -10,6 +10,7 @@ import com.microsoft.azure.toolkit.lib.appservice.model.FlexConsumptionConfigura
 import com.microsoft.azure.toolkit.lib.containerapps.environment.ContainerAppsEnvironmentDraft;
 import com.microsoft.azure.toolkit.lib.monitor.LogAnalyticsWorkspaceConfig;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -39,6 +40,9 @@ public class FunctionAppConfig extends AppServiceConfig {
     private Boolean enableDistributedTracing;
     private ApplicationInsightsConfig applicationInsightsConfig;
     private FlexConsumptionConfiguration flexConsumptionConfiguration;
+
+    @Builder.Default
+    private Boolean skipEndOfLifeValidation = Boolean.TRUE;
 
     public String environment() {
         return Optional.ofNullable(environmentConfig).map(ContainerAppsEnvironmentDraft.Config::getName).orElse(environment);
@@ -142,5 +146,13 @@ public class FunctionAppConfig extends AppServiceConfig {
 
     public void setFlexConsumptionConfiguration(FlexConsumptionConfiguration flexConsumptionConfiguration) {
         this.flexConsumptionConfiguration = flexConsumptionConfiguration;
+    }
+
+    public void setSkipEndOfLifeValidation(Boolean skipEndOfLifeValidation) {
+        this.skipEndOfLifeValidation = skipEndOfLifeValidation;
+    }
+
+    public Boolean getSkipEndOfLifeValidation() {
+        return skipEndOfLifeValidation;
     }
 }
