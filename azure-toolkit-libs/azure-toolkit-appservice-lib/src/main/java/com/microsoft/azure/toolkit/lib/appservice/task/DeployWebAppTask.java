@@ -111,7 +111,8 @@ public class DeployWebAppTask extends AzureTask<WebAppBase<?, ?, ?>> {
         Optional.ofNullable(webApp.getRuntime()).map(Runtime::getJavaVersionUserText).ifPresent(javaVersion -> OperationContext.action().setTelemetryProperty("javaVersion", javaVersion));
         Optional.ofNullable(webApp.getRuntime()).map(WebAppRuntime::getContainerUserText).ifPresent(webContainer -> OperationContext.action().setTelemetryProperty("webContainer", webContainer));
         Optional.ofNullable(webApp.getAppServicePlan()).map(AppServicePlan::getPricingTier).ifPresent(pricingTier -> OperationContext.action().setTelemetryProperty("pricingTier", pricingTier.getSize()));
-
+        // show runtime deprecation warning, but not block the deployment
+        Runtime.tryWarningDeprecation(webApp);
         final long startTime = System.currentTimeMillis();
         final List<WebAppArtifact> artifactsOneDeploy = this.artifacts.stream()
                 .filter(artifact -> artifact.getDeployType() != null)

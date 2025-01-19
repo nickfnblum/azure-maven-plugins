@@ -99,7 +99,8 @@ public class DeployFunctionAppTask extends AzureTask<FunctionAppBase<?, ?, ?>> {
         Optional.ofNullable(target.getRuntime()).map(Runtime::getOperatingSystem).ifPresent(os -> OperationContext.action().setTelemetryProperty("os", os.getValue()));
         Optional.ofNullable(target.getRuntime()).map(Runtime::getJavaVersionUserText).ifPresent(javaVersion -> OperationContext.action().setTelemetryProperty("javaVersion", javaVersion));
         Optional.ofNullable(target.getAppServicePlan()).map(AppServicePlan::getPricingTier).ifPresent(pricingTier -> OperationContext.action().setTelemetryProperty("pricingTier", pricingTier.getSize()));
-
+        // show runtime deprecation warning, but not block the deployment
+        Runtime.tryWarningDeprecation(target);
         // For ftp deploy, we need to upload entire staging directory not the zipped package
         final File file = deployType == FunctionDeployType.FTP ? stagingDirectory : packageStagingDirectory();
         final long startTime = System.currentTimeMillis();
