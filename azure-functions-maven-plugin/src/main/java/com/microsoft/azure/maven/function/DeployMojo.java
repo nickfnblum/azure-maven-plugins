@@ -16,20 +16,22 @@ import com.microsoft.azure.toolkit.lib.appservice.config.RuntimeConfig;
 import com.microsoft.azure.toolkit.lib.appservice.function.AzureFunctions;
 import com.microsoft.azure.toolkit.lib.appservice.function.FunctionApp;
 import com.microsoft.azure.toolkit.lib.appservice.function.FunctionAppBase;
+import com.microsoft.azure.toolkit.lib.appservice.model.FlexConsumptionConfiguration;
 import com.microsoft.azure.toolkit.lib.appservice.model.FunctionAppRuntime;
 import com.microsoft.azure.toolkit.lib.appservice.model.FunctionDeployType;
 import com.microsoft.azure.toolkit.lib.appservice.model.OperatingSystem;
 import com.microsoft.azure.toolkit.lib.appservice.model.PricingTier;
+import com.microsoft.azure.toolkit.lib.appservice.model.Runtime;
+import com.microsoft.azure.toolkit.lib.appservice.model.StorageAuthenticationMethod;
 import com.microsoft.azure.toolkit.lib.appservice.task.CreateOrUpdateFunctionAppTask;
 import com.microsoft.azure.toolkit.lib.appservice.task.DeployFunctionAppTask;
 import com.microsoft.azure.toolkit.lib.appservice.task.StreamingLogTask;
-import com.microsoft.azure.toolkit.lib.common.exception.AzureExecutionException;
 import com.microsoft.azure.toolkit.lib.common.exception.AzureToolkitRuntimeException;
 import com.microsoft.azure.toolkit.lib.common.messager.AzureMessager;
 import com.microsoft.azure.toolkit.lib.common.model.Region;
 import com.microsoft.azure.toolkit.lib.common.operation.AzureOperation;
 import com.microsoft.azure.toolkit.lib.common.utils.Utils;
-import org.apache.commons.lang3.ObjectUtils;
+import lombok.Getter;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
@@ -38,7 +40,9 @@ import org.apache.maven.plugins.annotations.Parameter;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -56,11 +60,6 @@ public class DeployMojo extends AbstractFunctionMojo {
     private static final String APPLICATION_INSIGHTS_CONFIGURATION_CONFLICT = "Contradictory configurations for application insights," +
             " specify 'appInsightsKey' or 'appInsightsInstance' if you want to enable it, and specify " +
             "'disableAppInsights=true' if you want to disable it.";
-    private static final String ARTIFACT_INCOMPATIBLE_WARNING = "Your function app artifact compile version {0} may not compatible with java version {1} in " +
-            "configuration.";
-    private static final String ARTIFACT_INCOMPATIBLE_ERROR = "Your function app artifact compile version {0} is not compatible with java version {1} in " +
-            "configuration, please downgrade the project compile version and try again.";
-    private static final String NO_ARTIFACT_FOUNDED = "Failed to find function artifact '%s.jar' in folder '%s', please re-package the project and try again.";
     private static final String APP_NAME_PATTERN = "[a-zA-Z0-9\\-]{2,60}";
     private static final String RESOURCE_GROUP_PATTERN = "[a-zA-Z0-9._\\-()]{1,90}";
     private static final String SLOT_NAME_PATTERN = "[A-Za-z0-9-]{1,60}";
@@ -82,13 +81,14 @@ public class DeployMojo extends AbstractFunctionMojo {
             "please refer to https://aka.ms/maven_function_configuration#supported-pricing-tiers for valid values";
     private static final String EXPANDABLE_REGION_WARNING = "'%s' may not be a valid region, " +
             "please refer to https://aka.ms/maven_function_configuration#supported-regions for valid values";
-    private static final String EXPANDABLE_JAVA_VERSION_WARNING = "'%s' may not be a valid java version, recommended values are `Java 8`, `Java 11` and `Java 17`";
     private static final String CV2_INVALID_CONTAINER_SIZE = "Invalid container size for flex consumption plan, valid values are: %s";
-    private static final String CV2_INVALID_RUNTIME = "Windows runtime is not supported within flex consumption service plan";
-    private static final String CV2_INVALID_MAX_INSTANCE = "Invalid maximum instances for flex consumption plan, the limit is 1000";
     public static final int MAX_MAX_INSTANCES = 1000;
-    public static final String CV2_INVALID_ALWAYS_READY_INSTANCE = "'alwaysReadyInstances' must be less than or equal to 'maximumInstances'";
-    public static final String CV2_INVALID_JAVA_VERSION = "Invalid java version for flex consumption plan, only java 17 is supported";
+    public static final int MIN_MAX_INSTANCES = 40;
+    public static final int MIN_HTTP_INSTANCE_CONCURRENCY = 1;
+    public static final int MAX_HTTP_INSTANCE_CONCURRENCY = 1000;
+
+    @Getter
+    protected final ConfigParser parser = new ConfigParser(this);
 
     /**
      * The deployment approach to use, valid values are FTP, ZIP, MSDEPLOY, RUN_FROM_ZIP, RUN_FROM_BLOB <p>
@@ -100,6 +100,134 @@ public class DeployMojo extends AbstractFunctionMojo {
     @JsonProperty
     @Parameter(property = "deploymentType")
     protected String deploymentType;
+
+    /**
+     *  Set the amount of memory allocated to each instance of the function app in MB.
+     *  CPU and network bandwidth are allocated proportionally.
+     *  Values must be one of 512, 2048, 4096
+     *  Default value is 2048
+     */
+    @JsonProperty
+    @Getter
+    @Parameter
+    protected Integer instanceMemory;
+
+    /**
+     * The maximum number of instances for the function app.
+     * Value must be in range [40, 1000]
+     * Default value is 100
+     */
+    @JsonProperty
+    @Getter
+    @Parameter
+    protected Integer maximumInstances;
+
+    /**
+     * The storage account which is used to store deployment artifacts.
+     * If not specified, will use account defined with <storageAccountName> for deployment
+     */
+    @JsonProperty
+    @Getter
+    @Parameter(property = "deploymentStorageAccount")
+    protected String deploymentStorageAccount;
+
+    /**
+     * The resource group of the storage account which is used to store deployment artifacts.
+     */
+    @JsonProperty
+    @Getter
+    @Parameter(property = "deploymentStorageResourceGroup")
+    protected String deploymentStorageResourceGroup;
+
+    /**
+     * The container in the storage account which is used to store deployment artifacts.
+     */
+    @JsonProperty
+    @Getter
+    @Parameter(property = "deploymentStorageContainer")
+    protected String deploymentStorageContainer;
+
+    /**
+     * The authentication method to access the storage account for deployment.
+     * Available options: SystemAssignedIdentity, UserAssignedIdentity, StorageAccountConnectionString.
+     */
+    @JsonProperty
+    @Getter
+    @Parameter(property = "storageAuthenticationMethod")
+    protected String storageAuthenticationMethod;
+
+    /**
+     * Use this property for UserAssignedIdentity.
+     * Set the resource ID of the identity.
+     */
+    @JsonProperty
+    @Getter
+    @Parameter(property = "userAssignedIdentityResourceId")
+    protected String userAssignedIdentityResourceId;
+
+    /**
+     * Use this property for StorageAccountConnectionString.
+     * Set the name of the app setting that has the storage account connection string.
+     */
+    @JsonProperty
+    @Getter
+    @Parameter(property = "storageAccountConnectionString")
+    protected String storageAccountConnectionString;
+
+    /**
+     * always ready instances config for flex consumption function app, in the form of name-value pairs.
+     * <pre>
+     * {@code
+     * <alwaysReadyInstances>
+     *     <trigger1>value1</trigger1>
+     *     <trigger2>value2</trigger2>
+     * </alwaysReadyInstances>
+     * }
+     * </pre>
+     *
+     * For additional information see https://aka.ms/flexconsumption/alwaysready.
+     */
+    @JsonProperty
+    @Getter
+    @Parameter(property = "alwaysReadyInstances")
+    protected Map<String, String> alwaysReadyInstances;
+
+    @JsonProperty
+    @Getter
+    @Parameter(property = "httpInstanceConcurrency")
+    protected Integer httpInstanceConcurrency;
+
+    /**
+     * The CPU in cores of the container host function app. e.g 0.75. Only works for container host function app
+     */
+    @JsonProperty
+    @Getter
+    @Parameter(property = "cpu")
+    protected String cpu;
+
+    /**
+     * The memory size of the container host function app. e.g. 1.0Gi. Only works for container host function app
+     */
+    @JsonProperty
+    @Getter
+    @Parameter(property = "memory")
+    protected String memory;
+
+    /**
+     * The workload profile name to run the function app on.
+     */
+    @JsonProperty
+    @Getter
+    @Parameter(property = "workloadProfileName")
+    protected String workloadProfileName;
+
+    /**
+     * Boolean flag to control whether to check runtime is EOL during creation
+     *
+     */
+    @Getter
+    @Parameter(property = "functions.skipEndOfLifeValidation", defaultValue = "false")
+    protected Boolean skipEndOfLifeValidation;
 
     @Override
     @AzureOperation("user/functionapp.deploy_app")
@@ -115,7 +243,9 @@ public class DeployMojo extends AbstractFunctionMojo {
             final FunctionAppBase<?, ?, ?> target = createOrUpdateResource(app);
             deployArtifact(target);
         } catch (final Exception e) {
-            new StreamingLogTask(app).execute();
+            if (app.exists()) {
+                new StreamingLogTask(app).execute();
+            }
             throw new AzureToolkitRuntimeException(e);
         }
         updateTelemetryProperties();
@@ -132,15 +262,93 @@ public class DeployMojo extends AbstractFunctionMojo {
         }
     }
 
-    protected void doValidate() throws AzureExecutionException {
+    protected void doValidate() {
         validateParameters();
         validateFunctionCompatibility();
         validateArtifactCompileVersion();
         validateApplicationInsightsConfiguration();
+        validateContainerHostFunctionConfiguration();
+        if (Objects.equals(PricingTier.fromString(getPricingTier()), PricingTier.FLEX_CONSUMPTION)) {
+            validateFlexConsumptionConfiguration();
+        }
         // validate container apps hosting of function app
     }
 
-    private void validateArtifactCompileVersion() throws AzureExecutionException {
+    private void validateContainerHostFunctionConfiguration() {
+        // validate memory schema
+        if (StringUtils.isBlank(this.memory) && StringUtils.isNoneBlank(this.cpu)) {
+            throw new AzureToolkitRuntimeException("The <memory> argument is required with <cpu>. Please provide both or none.");
+        }
+        if (StringUtils.isBlank(this.cpu) && StringUtils.isNoneBlank(this.memory)) {
+            throw new AzureToolkitRuntimeException("The <cpu> argument is required with <memory>. Please provide both or none.");
+        }
+        if (StringUtils.isNoneBlank(this.cpu)) {
+            try {
+                Double.valueOf(this.cpu);
+            } catch (final NumberFormatException nfe) {
+                throw new AzureToolkitRuntimeException("The value of <cpu> is not valid. Please provide a correct value. e.g. 2.0.");
+            }
+        }
+        if (StringUtils.isNotBlank(this.memory)) {
+            if (!StringUtils.endsWithIgnoreCase(this.memory, "gi")) {
+                throw new AzureToolkitRuntimeException("The value of <memory> should end with Gi. Please provide a correct value. e.g. 4.0Gi.");
+            }
+            try {
+                Double.valueOf(StringUtils.removeEndIgnoreCase(this.memory, "gi"));
+            } catch (final NumberFormatException nfe) {
+                throw new AzureToolkitRuntimeException("The value of <memory> is not valid. Please provide a correct value. e.g. 4.0Gi.");
+            }
+        }
+    }
+
+    private void validateFlexConsumptionConfiguration() {
+        // regions
+        final String subsId = this.getSubscriptionId();
+        final List<Region> regions = Azure.az(AzureAppService.class).forSubscription(subsId)
+            .functionApps().listRegions(PricingTier.FLEX_CONSUMPTION);
+        final Region region = Optional.ofNullable(getRegion()).filter(StringUtils::isNotBlank).map(Region::fromName).orElse(null);
+        final String supportedRegionsValue = regions.stream().map(Region::getName).collect(Collectors.joining(","));
+        if (Objects.nonNull(region) && !regions.contains(region)) {
+            throw new AzureToolkitRuntimeException(String.format("`%s` is not a valid region for flex consumption app, supported values are %s", region.getName(), supportedRegionsValue));
+        }
+        // runtime
+        final List<? extends FunctionAppRuntime> validFlexRuntimes = Objects.isNull(region) ? Collections.emptyList() :
+            Azure.az(AzureAppService.class).forSubscription(subsId).functionApps().listFlexConsumptionRuntimes(region);
+        final Runtime appRuntime = RuntimeConfig.toFunctionAppRuntime(getParser().getRuntimeConfig());
+        if (Objects.nonNull(region) && !validFlexRuntimes.contains(appRuntime)) {
+            final String validValues = validFlexRuntimes.stream().map(FunctionAppRuntime::getDisplayName).collect(Collectors.joining(","));
+            throw new AzureToolkitRuntimeException(String.format("Invalid runtime configuration, valid flex consumption runtimes are %s in region %s", validValues, region.getLabel()));
+        }
+        // storage authentication method
+        final StorageAuthenticationMethod authenticationMethod = Optional.ofNullable(storageAuthenticationMethod)
+            .map(StorageAuthenticationMethod::fromString)
+            .orElse(null);
+        if (Objects.nonNull(authenticationMethod)) {
+            if (StringUtils.isNotBlank(storageAccountConnectionString) &&
+                authenticationMethod != StorageAuthenticationMethod.StorageAccountConnectionString) {
+                AzureMessager.getMessager().warning("The value of <storageAccountConnectionString> will be ignored because the value of <storageAuthenticationMethod> is not StorageAccountConnectionString");
+            }
+            if (StringUtils.isNotBlank(userAssignedIdentityResourceId) &&
+                authenticationMethod != StorageAuthenticationMethod.UserAssignedIdentity) {
+                AzureMessager.getMessager().warning("The value of <userAssignedIdentityResourceId> will be ignored because the value of <storageAuthenticationMethod> is not UserAssignedIdentity");
+            }
+            if (StringUtils.isBlank(userAssignedIdentityResourceId) && authenticationMethod == StorageAuthenticationMethod.UserAssignedIdentity) {
+                throw new AzureToolkitRuntimeException("Please specify the value of <userAssignedIdentityResourceId> when the value of <storageAuthenticationMethod> is UserAssignedIdentity");
+            }
+        }
+        // scale configuration
+        if (Objects.nonNull(instanceMemory) && !VALID_CONTAINER_SIZE.contains(instanceMemory)) {
+            throw new AzureToolkitRuntimeException(String.format(CV2_INVALID_CONTAINER_SIZE, VALID_CONTAINER_SIZE.stream().map(String::valueOf).collect(Collectors.joining(","))));
+        }
+        if (Objects.nonNull(maximumInstances) && (maximumInstances > MAX_MAX_INSTANCES || maximumInstances < MIN_MAX_INSTANCES)){
+            throw new AzureToolkitRuntimeException("Invalid value for <maximumInstances>, it should be in range [40, 1000]");
+        }
+        if (Objects.nonNull(httpInstanceConcurrency) && (httpInstanceConcurrency < MIN_HTTP_INSTANCE_CONCURRENCY || httpInstanceConcurrency > MAX_HTTP_INSTANCE_CONCURRENCY)) {
+            throw new AzureToolkitRuntimeException("Invalid value for <httpInstanceConcurrency>, it should be in range [1, 1000]");
+        }
+    }
+
+    private void validateArtifactCompileVersion() {
         final RuntimeConfig runtimeConfig = getParser().getRuntimeConfig();
         final String javaVersion = Optional.ofNullable(runtimeConfig).map(RuntimeConfig::javaVersion).orElse(StringUtils.EMPTY);
         validateArtifactCompileVersion(javaVersion, getArtifact(), getFailsOnRuntimeValidationError());
@@ -194,24 +402,6 @@ public class DeployMojo extends AbstractFunctionMojo {
         if (OperatingSystem.fromString(runtime.getOs()) == OperatingSystem.DOCKER && StringUtils.isEmpty(runtime.getImage())) {
             throw new AzureToolkitRuntimeException(EMPTY_IMAGE_NAME);
         }
-        // flex consumption
-        if (StringUtils.isNotEmpty(pricingTier) && PricingTier.fromString(pricingTier).isFlexConsumption()) {
-            if (Objects.nonNull(instanceSize) && !VALID_CONTAINER_SIZE.contains(instanceSize)) {
-                throw new AzureToolkitRuntimeException(String.format(CV2_INVALID_CONTAINER_SIZE, VALID_CONTAINER_SIZE.stream().map(String::valueOf).collect(Collectors.joining(","))));
-            }
-            if (Objects.nonNull(maximumInstances) && maximumInstances > MAX_MAX_INSTANCES) {
-                throw new AzureToolkitRuntimeException(CV2_INVALID_MAX_INSTANCE);
-            }
-            if (ObjectUtils.allNotNull(maximumInstances, alwaysReadyInstances) && alwaysReadyInstances > maximumInstances) {
-                throw new AzureToolkitRuntimeException(CV2_INVALID_ALWAYS_READY_INSTANCE);
-            }
-            if (StringUtils.isEmpty(runtime.getOs()) || OperatingSystem.fromString(runtime.getOs()) == OperatingSystem.WINDOWS) {
-                throw new AzureToolkitRuntimeException(CV2_INVALID_RUNTIME);
-            }
-            if (StringUtils.isNotEmpty(runtime.getJavaVersion()) && Utils.getJavaMajorVersion(runtime.getJavaVersion()) < 17) {
-                throw new AzureToolkitRuntimeException(CV2_INVALID_JAVA_VERSION);
-            }
-        }
     }
 
     protected FunctionAppBase<?, ?, ?> createOrUpdateResource(final FunctionApp app) throws Throwable {
@@ -235,6 +425,7 @@ public class DeployMojo extends AbstractFunctionMojo {
         final List<Region> regions = Azure.az(AzureAppService.class).forSubscription(subscriptionId).listSupportedRegions();
         // replace with first region when the default region is not present
         appServiceConfig.region(selectFirstOptionIfCurrentInvalid("region", regions, appServiceConfig.region()));
+        appServiceConfig.setFlexConsumptionConfiguration(FlexConsumptionConfiguration.DEFAULT_CONFIGURATION);
         return appServiceConfig;
     }
 
@@ -244,9 +435,9 @@ public class DeployMojo extends AbstractFunctionMojo {
         new DeployFunctionAppTask(target, file, type, true).doExecute();
     }
 
-    private void validateApplicationInsightsConfiguration() throws AzureExecutionException {
+    private void validateApplicationInsightsConfiguration() {
         if (isDisableAppInsights() && (StringUtils.isNotEmpty(getAppInsightsKey()) || StringUtils.isNotEmpty(getAppInsightsInstance()))) {
-            throw new AzureExecutionException(APPLICATION_INSIGHTS_CONFIGURATION_CONFLICT);
+            throw new AzureToolkitRuntimeException(APPLICATION_INSIGHTS_CONFIGURATION_CONFLICT);
         }
     }
 }

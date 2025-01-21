@@ -72,7 +72,8 @@ public class DeployFunctionAppTask extends AzureTask<FunctionAppBase<?, ?, ?>> {
 
     @Override
     public FunctionAppBase<?, ?, ?> doExecute() {
-        if (Objects.requireNonNull(target.getRuntime()).isDocker()) {
+        final Boolean isDockerRuntime = Optional.ofNullable(target.getRuntime()).map(Runtime::isDocker).orElse(false);
+        if (isDockerRuntime) {
             messager.info(SKIP_DEPLOYMENT_FOR_DOCKER_APP_SERVICE);
             return target;
         }
@@ -98,7 +99,8 @@ public class DeployFunctionAppTask extends AzureTask<FunctionAppBase<?, ?, ?>> {
         Optional.ofNullable(target.getRuntime()).map(Runtime::getOperatingSystem).ifPresent(os -> OperationContext.action().setTelemetryProperty("os", os.getValue()));
         Optional.ofNullable(target.getRuntime()).map(Runtime::getJavaVersionUserText).ifPresent(javaVersion -> OperationContext.action().setTelemetryProperty("javaVersion", javaVersion));
         Optional.ofNullable(target.getAppServicePlan()).map(AppServicePlan::getPricingTier).ifPresent(pricingTier -> OperationContext.action().setTelemetryProperty("pricingTier", pricingTier.getSize()));
-
+        // show runtime deprecation warning, but not block the deployment
+        Runtime.tryWarningDeprecation(target);
         // For ftp deploy, we need to upload entire staging directory not the zipped package
         final File file = deployType == FunctionDeployType.FTP ? stagingDirectory : packageStagingDirectory();
         final long startTime = System.currentTimeMillis();
@@ -125,7 +127,9 @@ public class DeployFunctionAppTask extends AzureTask<FunctionAppBase<?, ?, ?>> {
                             .withLabel(String.format("Trigger \"%s\"", trigger.getName()))).orElse(null);
                 }
             }).filter(Objects::nonNull).collect(Collectors.toCollection(LinkedList::new));
-            Optional.ofNullable(streamingLog).ifPresent(action -> actions.add(0, action));
+            Optional.ofNullable(streamingLog)
+                .filter(ignore -> !(target instanceof FunctionApp && target.isFlexConsumptionApp())) // log streaming is not supported for
+                .ifPresent(action -> actions.add(0, action));
             messager.info(String.format(DEPLOY_FINISH), actions.toArray());
         } else {
             messager.info(String.format(DEPLOY_FINISH));

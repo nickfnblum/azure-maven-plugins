@@ -36,9 +36,13 @@ import java.util.stream.Collectors;
 @Getter
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class WebAppLinuxRuntime implements WebAppRuntime {
+    public static final WebAppLinuxRuntime JAVASE_JAVA21 = new WebAppLinuxRuntime("JAVA|21-java21", "Java 21");
     public static final WebAppLinuxRuntime JAVASE_JAVA17 = new WebAppLinuxRuntime("JAVA|17-java17", "Java 17");
     public static final WebAppLinuxRuntime JAVASE_JAVA11 = new WebAppLinuxRuntime("JAVA|11-java11", "Java 11");
     public static final WebAppLinuxRuntime JAVASE_JAVA8 = new WebAppLinuxRuntime("JAVA|8-jre8", "Java 1.8");
+    public static final WebAppLinuxRuntime TOMCAT101_JAVA21 = new WebAppLinuxRuntime("TOMCAT|10.1-java21", "Java 21");
+    public static final WebAppLinuxRuntime TOMCAT101_JAVA17 = new WebAppLinuxRuntime("TOMCAT|10.1-java17", "Java 17");
+    public static final WebAppLinuxRuntime TOMCAT101_JAVA11 = new WebAppLinuxRuntime("TOMCAT|10.1-java11", "Java 11");
     public static final WebAppLinuxRuntime TOMCAT10_JAVA17 = new WebAppLinuxRuntime("TOMCAT|10.0-java17", "Java 17");
     public static final WebAppLinuxRuntime TOMCAT10_JAVA11 = new WebAppLinuxRuntime("TOMCAT|10.0-java11", "Java 11");
     public static final WebAppLinuxRuntime TOMCAT10_JAVA8 = new WebAppLinuxRuntime("TOMCAT|10.0-jre8", "Java 1.8");
@@ -53,7 +57,8 @@ public class WebAppLinuxRuntime implements WebAppRuntime {
 
     private static final AtomicReference<Boolean> loaded = new AtomicReference<>(Boolean.FALSE);
     private static final LinkedHashSet<WebAppLinuxRuntime> RUNTIMES = Sets.newLinkedHashSet(Arrays.asList(
-        JAVASE_JAVA17, JAVASE_JAVA11, JAVASE_JAVA8,
+        JAVASE_JAVA21, JAVASE_JAVA17, JAVASE_JAVA11, JAVASE_JAVA8,
+        TOMCAT101_JAVA21, TOMCAT101_JAVA17, TOMCAT101_JAVA11,
         TOMCAT10_JAVA17, TOMCAT10_JAVA11, TOMCAT10_JAVA8,
         TOMCAT9_JAVA17, TOMCAT9_JAVA11, TOMCAT9_JAVA8,
         TOMCAT85_JAVA11, TOMCAT85_JAVA8,

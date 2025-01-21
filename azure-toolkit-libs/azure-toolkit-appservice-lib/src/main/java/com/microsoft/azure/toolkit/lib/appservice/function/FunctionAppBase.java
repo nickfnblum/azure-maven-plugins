@@ -5,9 +5,24 @@
 
 package com.microsoft.azure.toolkit.lib.appservice.function;
 
+import com.azure.core.http.HttpHeaderName;
+import com.azure.core.http.HttpMethod;
+import com.azure.core.http.HttpPipeline;
+import com.azure.core.http.HttpRequest;
+import com.azure.core.http.HttpResponse;
+import com.azure.core.management.serializer.SerializerFactory;
+import com.azure.core.util.serializer.JacksonAdapter;
+import com.azure.core.util.serializer.SerializerAdapter;
+import com.azure.core.util.serializer.SerializerEncoding;
+import com.azure.resourcemanager.appservice.AppServiceManager;
+import com.azure.resourcemanager.appservice.fluent.WebSiteManagementClient;
 import com.azure.resourcemanager.appservice.models.JavaVersion;
 import com.azure.resourcemanager.appservice.models.PlatformArchitecture;
 import com.azure.resourcemanager.appservice.models.WebAppBase;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.MapperFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.microsoft.azure.toolkit.lib.appservice.AppServiceAppBase;
 import com.microsoft.azure.toolkit.lib.appservice.deploy.FTPFunctionDeployHandler;
 import com.microsoft.azure.toolkit.lib.appservice.deploy.FlexFunctionDeployHandler;
@@ -20,6 +35,7 @@ import com.microsoft.azure.toolkit.lib.appservice.file.AzureFunctionsAdminClient
 import com.microsoft.azure.toolkit.lib.appservice.file.IFileClient;
 import com.microsoft.azure.toolkit.lib.appservice.model.DiagnosticConfig;
 import com.microsoft.azure.toolkit.lib.appservice.model.FlexConsumptionConfiguration;
+import com.microsoft.azure.toolkit.lib.appservice.model.FunctionAppConfig;
 import com.microsoft.azure.toolkit.lib.appservice.model.FunctionAppDockerRuntime;
 import com.microsoft.azure.toolkit.lib.appservice.model.FunctionAppLinuxRuntime;
 import com.microsoft.azure.toolkit.lib.appservice.model.FunctionAppRuntime;
@@ -34,6 +50,7 @@ import com.microsoft.azure.toolkit.lib.common.model.AbstractAzResource;
 import com.microsoft.azure.toolkit.lib.common.model.AbstractAzResourceModule;
 import com.microsoft.azure.toolkit.lib.common.operation.OperationContext;
 import org.apache.commons.lang3.StringUtils;
+import reactor.core.publisher.Mono;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -98,13 +115,26 @@ public abstract class FunctionAppBase<T extends FunctionAppBase<T, P, F>, P exte
             } else {
                 final String fxString = r.linuxFxVersion();
                 if (StringUtils.isEmpty(fxString)) {
-                    return null;
+                    return isFlexConsumptionApp() ? getFlexConsumptionRuntime() : null;
                 } else if (StringUtils.startsWithIgnoreCase(fxString, "docker")) {
                     return FunctionAppDockerRuntime.INSTANCE;
                 }
                 return FunctionAppLinuxRuntime.fromFxString(fxString);
             }
         }).orElse(null);
+    }
+
+    public boolean isFlexConsumptionApp() {
+        return Optional.ofNullable(getAppServicePlan())
+            .map(AppServicePlan::getPricingTier)
+            .map(PricingTier::isFlexConsumption).orElse(false);
+    }
+
+    private FunctionAppRuntime getFlexConsumptionRuntime() {
+        final FunctionAppConfig config = getFlexConsumptionAppConfig();
+        return Optional.ofNullable(config).map(FunctionAppConfig::getRuntime).map(FunctionAppConfig.FunctionsRuntime::getVersion)
+            .map(FunctionAppLinuxRuntime::fromJavaVersionUserText)
+            .orElse(null);
     }
 
     @Nullable
@@ -194,9 +224,49 @@ public abstract class FunctionAppBase<T extends FunctionAppBase<T, P, F>, P exte
         return String.join(" ", jvmOptions);
     }
 
+    public FunctionAppConfig getFlexConsumptionAppConfig(){
+        // todo: return null if not flex consumption
+        return Optional.ofNullable(getRemote()).map(this::getFlexConfigFromRemote).orElse(null);
+    }
+
+    protected FunctionAppConfig getFlexConfigFromRemote(@Nonnull final WebAppBase remote) {
+        final HttpPipeline httpPipeline = remote.manager().httpPipeline();
+        final String targetUrl = getRawRequestEndpoint(remote);
+        final HttpRequest request = new HttpRequest(HttpMethod.GET, targetUrl)
+            .setHeader(HttpHeaderName.CONTENT_TYPE, "application/json");
+        try (final HttpResponse block = httpPipeline.send(request).block()) {
+            final String content = Optional.ofNullable(block).map(HttpResponse::getBodyAsString).map(Mono::block).orElse(StringUtils.EMPTY);
+            final SerializerAdapter adapter = new JacksonAdapter(this::configureSerialization);
+            final ObjectNode functionNode = adapter.deserialize(content, ObjectNode.class, SerializerEncoding.JSON);
+            final JsonNode configNode = Optional.ofNullable(functionNode.get("properties")).map(propertiesNode -> propertiesNode.get("functionAppConfig")).orElse(null);
+            return Objects.isNull(configNode) ? null : adapter.deserialize(configNode.toPrettyString(), FunctionAppConfig.class, SerializerEncoding.JSON);
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    // workaround to fix case issue from function service
+    // todo: migrate to sdk instead of raw request
+    private void configureSerialization(ObjectMapper outerMapper, ObjectMapper innerMapper) {
+        outerMapper.configure(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS, true);
+        innerMapper.configure(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS, true);
+    }
+
+    public String getRawRequestEndpoint(@Nonnull com.azure.resourcemanager.appservice.models.WebAppBase functionApp) {
+        final AppServiceManager manager = functionApp.manager();
+        final WebSiteManagementClient client = manager.serviceClient();
+        final String endpoint = client.getEndpoint();
+        // final String apiVersion = client.getApiVersion();
+        // todo: change to use api version from client
+        final String apiVersion = "2023-12-01";
+        final String subscriptionId = client.getSubscriptionId();
+        return endpoint + String.format("subscriptions/%s/resourceGroups/%s/providers/Microsoft.Web/sites/%s?api-version=%s"
+            , subscriptionId, functionApp.resourceGroupName(), functionApp.name(), apiVersion);
+    }
+
     @Nullable
     public FlexConsumptionConfiguration getFlexConsumptionConfiguration() {
-        return Optional.ofNullable(this.getRemote()).map(FlexConsumptionConfiguration::fromWebAppBase).orElse(null);
+        return FlexConsumptionConfiguration.fromFunctionAppBase(this);
     }
 
     @Override

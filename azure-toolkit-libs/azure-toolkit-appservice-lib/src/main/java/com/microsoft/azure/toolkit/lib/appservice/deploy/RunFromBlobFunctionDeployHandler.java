@@ -10,12 +10,13 @@ import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.models.BlobContainerAccessPolicies;
 import com.microsoft.azure.toolkit.lib.common.messager.AzureMessager;
+import com.microsoft.azure.toolkit.lib.common.utils.Utils;
 import com.microsoft.azure.toolkit.lib.legacy.function.AzureStorageHelper;
-import org.apache.commons.lang3.StringUtils;
 
 import javax.annotation.Nonnull;
 import java.io.File;
 import java.time.Period;
+import java.util.UUID;
 
 import static com.microsoft.azure.toolkit.lib.legacy.function.Constants.APP_SETTING_WEBSITE_RUN_FROM_PACKAGE;
 
@@ -35,7 +36,7 @@ public class RunFromBlobFunctionDeployHandler implements IFunctionDeployHandler 
     private BlobClient deployArtifactToAzureStorage(WebAppBase deployTarget, File zipPackage, BlobServiceClient storageAccount) {
         AzureMessager.getMessager().info(String.format(DEPLOY_START, deployTarget.name()));
         final BlobContainerClient container = getOrCreateArtifactContainer(storageAccount);
-        final String blobName = getBlobName(deployTarget, zipPackage);
+        final String blobName = getBlobName(deployTarget);
         final BlobClient blob = AzureStorageHelper.uploadFileAsBlob(zipPackage, storageAccount,
                 container.getBlobContainerName(), blobName);
         AzureMessager.getMessager().info(String.format(DEPLOY_FINISH, deployTarget.defaultHostname()));
@@ -61,9 +62,11 @@ public class RunFromBlobFunctionDeployHandler implements IFunctionDeployHandler 
         AzureMessager.getMessager().info(String.format(UPDATE_ACCESS_LEVEL_TO_PRIVATE, DEPLOYMENT_PACKAGE_CONTAINER));
     }
 
-    private String getBlobName(final WebAppBase deployTarget, final File zipPackage) {
+    private String getBlobName(final WebAppBase deployTarget) {
         // replace '/' in resource id to '-' in case create multi-level blob
-        final String fixedResourceId = StringUtils.replace(deployTarget.id(), "/", "-").replaceFirst("-", "");
-        return String.format("%s-%s", fixedResourceId, zipPackage.getName());
+        final String appName = deployTarget.name();
+        final String timestamp = Utils.getTimestamp();
+        final String randomSuffixes = UUID.randomUUID().toString();
+        return String.format("%s-%s-%s", appName, timestamp, randomSuffixes);
     }
 }

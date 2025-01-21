@@ -1,9 +1,12 @@
 # Change Log
 All notable changes to the "Maven Plugin for Azure Function" will be documented in this file.
 - [Change Log](#change-log)
-  - [1.31.0](#1280)
-  - [1.30.0](#1280)
-  - [1.29.0](#1280)
+  - [1.37.0](#1370)
+  - [1.36.0](#1360)
+  - [1.35.0](#1350)
+  - [1.31.0](#1310)
+  - [1.30.0](#1300)
+  - [1.29.0](#1290)
   - [1.28.0](#1280)
   - [1.27.0](#1270)
   - [1.13.0](#1130)
@@ -26,6 +29,18 @@ All notable changes to the "Maven Plugin for Azure Function" will be documented 
   - [1.2.2](#122)
   - [1.2.1](#121)
   - [1.2.0](#120)
+
+## 1.37.0
+- Validate the deprecated status of Java runtime during function app creation and will fail the deployment if the runtime is EOL
+  - Add new parameter `skipEndOfLifeValidation` to skip the validation
+
+## 1.36.0
+- Add support for Workload profiles Azure Container Apps environment
+
+## 1.35.0
+- Add Flex Consumption SKU support for creation and deploying
+- Added Azure Blob Storage Trigger (using Event Grid) templates for flex consumption apps
+- Fix creation issue for function app hosted in Azure Container Apps Environment
 
 ## 1.31.0
 - Support function app hosted in Azure Container Apps Environment

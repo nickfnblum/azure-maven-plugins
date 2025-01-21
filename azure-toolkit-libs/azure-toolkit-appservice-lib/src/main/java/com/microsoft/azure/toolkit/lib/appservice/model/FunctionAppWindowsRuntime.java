@@ -144,23 +144,27 @@ public class FunctionAppWindowsRuntime implements FunctionAppRuntime {
         loaded.compareAndSet(null, Boolean.TRUE);
     }
 
-    @SuppressWarnings("DataFlowIssue")
     public static void loadAllFunctionAppWindowsRuntimesFromMap(final List<Map<String, Object>> javaVersions) {
         if (!loaded.compareAndSet(Boolean.FALSE, null)) {
             return;
         }
+        RUNTIMES.clear();
+        RUNTIMES.addAll(getWindowsRuntimeFromMap(javaVersions));
+        loaded.compareAndSet(null, Boolean.TRUE);
+    }
+
+    @SuppressWarnings("DataFlowIssue")
+    public static List<FunctionAppWindowsRuntime> getWindowsRuntimeFromMap(final List<Map<String, Object>> javaVersions) {
         final List<Map<String, Object>> javaMinorVersions = javaVersions.stream()
             .flatMap(majorVersion -> Utils.<List<Map<String, Object>>>get(majorVersion, "$.minorVersions").stream())
             .collect(Collectors.toList());
-
-        RUNTIMES.clear();
-        javaMinorVersions.forEach(javaMinorVersion -> {
-            final String runtimeVersion = Utils.get(javaMinorVersion, "$.stackSettings.windowsRuntimeSettings.runtimeVersion");
-            if (StringUtils.isNotBlank(runtimeVersion)) {
-                RUNTIMES.add(new FunctionAppWindowsRuntime(javaMinorVersion));
-            }
-        });
-        loaded.compareAndSet(null, Boolean.TRUE);
+        return javaMinorVersions.stream()
+            .map(javaMinorVersion -> {
+                final String runtimeVersion = Utils.get(javaMinorVersion, "$.stackSettings.windowsRuntimeSettings.runtimeVersion");
+                return StringUtils.isNotBlank(runtimeVersion) ? new FunctionAppWindowsRuntime(javaMinorVersion) : null;
+            })
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList());
     }
 
     public String toString() {

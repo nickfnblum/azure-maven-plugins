@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -41,16 +42,19 @@ public class AzureTelemetryClient {
     private static final Pattern EMAIL_PATTERN = Pattern.compile("@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-]+");
     private static final Pattern SECRET_PATTERN = Pattern.compile("(key|token|sig|secret|signature|password|passwd|pwd|android:value)[^a-zA-Z0-9]", Pattern.CASE_INSENSITIVE);
     private static final Pattern TOKEN_REGEX = Pattern.compile("xox[pbar]-[a-zA-Z0-9]", Pattern.CASE_INSENSITIVE);
+    private static final Pattern GITHUB_TOKEN_REGEX = Pattern.compile("(gh[psuro]_[a-zA-Z0-9]{36}|github_pat_[a-zA-Z0-9]{22}_[a-zA-Z0-9]{59})");
+    private static final Pattern CLI_CREDENTIALS_REGEX = Pattern.compile("((login|psexec|(certutil|psexec)\\.exe).{1,50}(\\s-u(ser(name)?)?\\s+.{3,100})?\\s-(admin|user|vm|root)?p(ass(word)?)?\\s+[\"']?[^$\\-/\\s]|(^|[\\s\\r\\n\\\\])net(\\.exe)?.{1,5}(user\\s+|share\\s+/user:| user -? secrets ? set) \\s + [^ $\\s/])");
+
 
     private static final Map<Pattern, String> PATTERN_MAP = new HashMap<Pattern, String>() {{
         put(EMAIL_PATTERN, "<REDACTED: Email>");
         put(SECRET_PATTERN, "<REDACTED: Generic Secret>");
         put(TOKEN_REGEX, "<REDACTED: Slack Toke>");
         put(GOOGLE_API_KEY, "<REDACTED: Google API Key>");
+        put(GITHUB_TOKEN_REGEX, "<REDACTED: GitHub Token>");
+        put(CLI_CREDENTIALS_REGEX, "<REDACTED: CLI Credentials>");
     }};
 
-    @Nonnull
-    private final TelemetryClient client = new TelemetryClient();
     @Getter
     @Setter(AccessLevel.PACKAGE)
     private String eventNamePrefix;
@@ -124,8 +128,10 @@ public class AzureTelemetryClient {
         final Map<String, String> properties = mergeProperties(getDefaultProperties(), customProperties, overrideDefaultProperties);
         properties.entrySet().removeIf(stringStringEntry -> StringUtils.isEmpty(stringStringEntry.getValue())); // filter out null values
         anonymizePersonallyIdentifiableInformation(properties);
-        client.trackEvent(eventName, properties, metrics);
-        client.flush();
+        Optional.ofNullable(getClient()).ifPresent(client -> {
+            client.trackEvent(eventName, properties, metrics);
+            client.flush();
+        });
     }
 
     protected Map<String, String> mergeProperties(Map<String, String> defaultProperties,
@@ -163,5 +169,14 @@ public class AzureTelemetryClient {
             }
         }
         return result;
+    }
+
+    @Nullable
+    private TelemetryClient getClient() {
+        return isEnabled() ? ClientHolder.client : null;
+    }
+
+    private static class ClientHolder {
+        private static final TelemetryClient client = new TelemetryClient();
     }
 }

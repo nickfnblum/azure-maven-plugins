@@ -85,6 +85,7 @@ public class Region implements ExpandableParameter {
     public static final Region EUROPE_SWEDEN_CENTRAL = new Region("swedencentral", "Sweden Central", "SEC");
     public static final Region QATAR_CENTRAL = new Region("qatarcentral", "Qatar Central", "QAC");
     public static final Region INDIA_JIO_CENTRAL = new Region("jioindiacentral", "Jio India Central", "JINC");
+    public static final Region US_NORTH_CENTRAL_STAGE = new Region("northcentralus(stage)", "North Central US (Stage)");
 
     private static final Set<Region> values = Collections.unmodifiableSet(Sets.newHashSet(US_EAST, US_EAST2, US_SOUTH_CENTRAL, US_WEST2, US_CENTRAL, US_NORTH_CENTRAL, US_WEST, US_WEST_CENTRAL, CANADA_CENTRAL,
             CANADA_EAST, BRAZIL_SOUTH, BRAZIL_SOUTHEAST, EUROPE_NORTH, UK_SOUTH, EUROPE_WEST, FRANCE_CENTRAL, GERMANY_WEST_CENTRAL, NORWAY_EAST,
@@ -92,7 +93,7 @@ public class Region implements ExpandableParameter {
             ASIA_EAST, JAPAN_EAST, KOREA_CENTRAL, AUSTRALIA_CENTRAL, AUSTRALIA_CENTRAL2, AUSTRALIA_SOUTHEAST, JAPAN_WEST, KOREA_SOUTH, INDIA_SOUTH,
             INDIA_WEST, UAE_NORTH, UAE_CENTRAL, SOUTHAFRICA_NORTH, SOUTHAFRICA_WEST, CHINA_NORTH, CHINA_EAST, CHINA_NORTH2, CHINA_EAST2, GERMANY_CENTRAL,
             GERMANY_NORTHEAST, GOV_US_VIRGINIA, GOV_US_IOWA, GOV_US_ARIZONA, GOV_US_TEXAS, GOV_US_DOD_EAST, GOV_US_DOD_CENTRAL, US_WEST3,
-            US_CENTRAL_EUAP, US_EAST2_EUAP, INDIA_JIO_WEST, EUROPE_SWEDEN_CENTRAL, QATAR_CENTRAL, INDIA_JIO_CENTRAL));
+            US_CENTRAL_EUAP, US_EAST2_EUAP, INDIA_JIO_WEST, EUROPE_SWEDEN_CENTRAL, QATAR_CENTRAL, INDIA_JIO_CENTRAL, US_NORTH_CENTRAL_STAGE));
 
     @Nonnull
     private String name;

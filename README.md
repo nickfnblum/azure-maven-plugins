@@ -25,19 +25,20 @@ Maven Plugin | Maven Central Version | Build Status
 ---|---|---
 [Maven Plugin for Azure Web Apps](./azure-webapp-maven-plugin/README.md) | [![Maven Central](https://img.shields.io/maven-central/v/com.microsoft.azure/azure-webapp-maven-plugin.svg)](http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.microsoft.azure%22%20AND%20a%3A%22azure-webapp-maven-plugin%22) | [![AppVeyor Webapp Plugin](https://ci.appveyor.com/api/projects/status/0vr4svfgl9u3rcaw/branch/develop?svg=true)](https://ci.appveyor.com/project/xscript/azure-maven-plugins-xt3xm)
 [Maven Plugin for Azure Functions](https://github.com/microsoft/azure-maven-plugins/wiki/Azure-Functions) | [![Maven Central](https://img.shields.io/maven-central/v/com.microsoft.azure/azure-functions-maven-plugin.svg)](http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.microsoft.azure%22%20AND%20a%3A%22azure-functions-maven-plugin%22) | [![AppVeyor Function Plugin](https://ci.appveyor.com/api/projects/status/5jti4qwh0j4ekh72/branch/develop?svg=true)](https://ci.appveyor.com/project/xscript/azure-maven-plugins-vvy0i)
-[Maven Plugin for Azure Spring Apps](https://github.com/microsoft/azure-maven-plugins/wiki/Azure-Spring-Cloud) | [![Maven Central](https://img.shields.io/maven-central/v/com.microsoft.azure/azure-spring-apps-maven-plugin.svg)](http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.microsoft.azure%22%20AND%20a%3A%22azure-spring-apps-maven-plugin%22) | 
+[Maven Plugin for Azure Spring Apps](https://github.com/microsoft/azure-maven-plugins/wiki/Azure-Spring-Cloud) | [![Maven Central](https://img.shields.io/maven-central/v/com.microsoft.azure/azure-spring-apps-maven-plugin.svg)](http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.microsoft.azure%22%20AND%20a%3A%22azure-spring-apps-maven-plugin%22) |
+[Maven Plugin for Azure Container Apps](https://github.com/microsoft/azure-maven-plugins/wiki/Azure-Container-Apps) | [![Maven Central](https://img.shields.io/maven-central/v/com.microsoft.azure/azure-container-apps-maven-plugin.svg)](http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.microsoft.azure%22%20AND%20a%3A%22azure-container-apps-maven-plugin%22) |
 
 
 ## Authentication
 
 All the Azure Maven plugins share the same authentication logic. There are 4 authentication methods by priority order:
 
-1. [Service Principles in plugin configuration](https://github.com/microsoft/azure-maven-plugins/wiki/Authentication#service-principles-in-plugin-configuration)
-1. [Service Principles in settings.xml](https://github.com/microsoft/azure-maven-plugins/wiki/Authentication#service-principles-in-settings.xml) (Recommended for production use)
+1. [Service Principals in plugin configuration](https://github.com/microsoft/azure-maven-plugins/wiki/Authentication#service-principles-in-plugin-configuration)
+1. [Service Principals in settings.xml](https://github.com/microsoft/azure-maven-plugins/wiki/Authentication#service-principles-in-settings.xml) (Recommended for production use)
 1. [Maven Plugin for Azure Account](https://github.com/microsoft/azure-maven-plugins/wiki/Authentication#maven-plugin-for-azure-account) (Default if no other method are used)
 1. [Azure CLI](https://github.com/microsoft/azure-maven-plugins/wiki/Authentication#azure-cli)
 
-For example, if you have not only Service Principles configured in your plugin configuration, but also Azure CLI installed and logged in, the Azure Maven plugins will use the Service Principles in your plugin configuration.
+For example, if you have not only Service Principals configured in your plugin configuration, but also Azure CLI installed and logged in, the Azure Maven plugins will use the Service Principals in your plugin configuration.
 
 If no credential found, Azure Maven plugins will automatically log you in with the third method like OAuth or DeviceLogin provided by Maven Plugin for Azure Account.
 

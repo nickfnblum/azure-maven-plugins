@@ -16,10 +16,10 @@ import java.util.ServiceLoader;
 public abstract class AzureMessager {
 
     private static final class Holder {
-        private static IAzureMessager defaultMessager = loadMessager();
+        private static IAzureMessager defaultMessager = null;
 
         @Nonnull
-        private static IAzureMessager loadMessager() {
+        public static IAzureMessager loadMessager() {
             final ClassLoader current = Thread.currentThread().getContextClassLoader();
             try {
                 Thread.currentThread().setContextClassLoader(AzureMessager.class.getClassLoader());
@@ -42,25 +42,11 @@ public abstract class AzureMessager {
     }
 
     @Nonnull
-    public static IAzureMessager getDefaultMessager() {
-        return Holder.defaultMessager;
-    }
-
-    @Nullable
-    private static IAzureMessager loadMessager() {
-        final ClassLoader current = Thread.currentThread().getContextClassLoader();
-        try {
-            Thread.currentThread().setContextClassLoader(AzureMessager.class.getClassLoader());
-            // don't use "IAzureMessager" as SPI interface to be compatible with IntelliJ's "Service" mechanism.
-            final ServiceLoader<AzureMessagerProvider> loader = ServiceLoader.load(AzureMessagerProvider.class, AzureMessager.class.getClassLoader());
-            final Iterator<AzureMessagerProvider> iterator = loader.iterator();
-            if (iterator.hasNext()) {
-                return iterator.next().getMessager();
-            }
-            return null;
-        } finally {
-            Thread.currentThread().setContextClassLoader(current);
+    public static synchronized IAzureMessager getDefaultMessager() {
+        if (Holder.defaultMessager == null) {
+            Holder.defaultMessager = Holder.loadMessager();
         }
+        return Holder.defaultMessager;
     }
 
     @Nonnull

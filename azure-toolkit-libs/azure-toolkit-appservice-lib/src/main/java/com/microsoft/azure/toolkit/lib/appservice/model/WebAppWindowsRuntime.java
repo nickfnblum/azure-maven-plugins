@@ -38,25 +38,34 @@ import java.util.stream.Collectors;
 @Getter
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class WebAppWindowsRuntime implements WebAppRuntime {
+    public static final WebAppWindowsRuntime JAVASE_JAVA21 = new WebAppWindowsRuntime("Java SE", "Java 21");
     public static final WebAppWindowsRuntime JAVASE_JAVA17 = new WebAppWindowsRuntime("Java SE", "Java 17");
     public static final WebAppWindowsRuntime JAVASE_JAVA11 = new WebAppWindowsRuntime("Java SE", "Java 11");
     public static final WebAppWindowsRuntime JAVASE_JAVA8 = new WebAppWindowsRuntime("Java SE", "Java 1.8");
+    public static final WebAppWindowsRuntime TOMCAT101_JAVA21 = new WebAppWindowsRuntime("Tomcat 10.1", "Java 21");
+    public static final WebAppWindowsRuntime TOMCAT101_JAVA17 = new WebAppWindowsRuntime("Tomcat 10.1", "Java 17");
+    public static final WebAppWindowsRuntime TOMCAT101_JAVA11 = new WebAppWindowsRuntime("Tomcat 10.1", "Java 11");
+    public static final WebAppWindowsRuntime TOMCAT101_JAVA8 = new WebAppWindowsRuntime("Tomcat 10.1", "Java 1.8");
+    public static final WebAppWindowsRuntime TOMCAT10_JAVA21 = new WebAppWindowsRuntime("Tomcat 10.0", "Java 21");
     public static final WebAppWindowsRuntime TOMCAT10_JAVA17 = new WebAppWindowsRuntime("Tomcat 10.0", "Java 17");
     public static final WebAppWindowsRuntime TOMCAT10_JAVA11 = new WebAppWindowsRuntime("Tomcat 10.0", "Java 11");
     public static final WebAppWindowsRuntime TOMCAT10_JAVA8 = new WebAppWindowsRuntime("Tomcat 10.0", "Java 1.8");
+    public static final WebAppWindowsRuntime TOMCAT9_JAVA21 = new WebAppWindowsRuntime("Tomcat 9.0", "Java 21");
     public static final WebAppWindowsRuntime TOMCAT9_JAVA17 = new WebAppWindowsRuntime("Tomcat 9.0", "Java 17");
     public static final WebAppWindowsRuntime TOMCAT9_JAVA11 = new WebAppWindowsRuntime("Tomcat 9.0", "Java 11");
     public static final WebAppWindowsRuntime TOMCAT9_JAVA8 = new WebAppWindowsRuntime("Tomcat 9.0", "Java 1.8");
+    public static final WebAppWindowsRuntime TOMCAT85_JAVA21 = new WebAppWindowsRuntime("Tomcat 8.5", "Java 21");
     public static final WebAppWindowsRuntime TOMCAT85_JAVA17 = new WebAppWindowsRuntime("Tomcat 8.5", "Java 17");
     public static final WebAppWindowsRuntime TOMCAT85_JAVA11 = new WebAppWindowsRuntime("Tomcat 8.5", "Java 11");
     public static final WebAppWindowsRuntime TOMCAT85_JAVA8 = new WebAppWindowsRuntime("Tomcat 8.5", "Java 1.8");
 
     private static final AtomicReference<Boolean> loaded = new AtomicReference<>(Boolean.FALSE);
     private static final LinkedHashSet<WebAppWindowsRuntime> RUNTIMES = Sets.newLinkedHashSet(Arrays.asList(
-        JAVASE_JAVA17, JAVASE_JAVA11, JAVASE_JAVA8,
-        TOMCAT10_JAVA17, TOMCAT10_JAVA11, TOMCAT10_JAVA8,
-        TOMCAT9_JAVA17, TOMCAT9_JAVA11, TOMCAT9_JAVA8,
-        TOMCAT85_JAVA17, TOMCAT85_JAVA11, TOMCAT85_JAVA8
+        JAVASE_JAVA21, JAVASE_JAVA17, JAVASE_JAVA11, JAVASE_JAVA8,
+        TOMCAT101_JAVA21, TOMCAT101_JAVA17, TOMCAT101_JAVA11, TOMCAT101_JAVA8,
+        TOMCAT10_JAVA21, TOMCAT10_JAVA17, TOMCAT10_JAVA11, TOMCAT10_JAVA8,
+        TOMCAT9_JAVA21, TOMCAT9_JAVA17, TOMCAT9_JAVA11, TOMCAT9_JAVA8,
+        TOMCAT85_JAVA21, TOMCAT85_JAVA17, TOMCAT85_JAVA11, TOMCAT85_JAVA8
     ));
 
     @EqualsAndHashCode.Include

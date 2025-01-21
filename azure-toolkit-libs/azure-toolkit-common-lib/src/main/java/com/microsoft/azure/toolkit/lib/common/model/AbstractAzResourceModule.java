@@ -516,7 +516,7 @@ public abstract class AbstractAzResourceModule<T extends AbstractAzResource<T, P
     protected void addResourceToLocalResourceGroup(@Nonnull String id, @Nonnull T resource, boolean... silent) {
         final ResourceId rId = ResourceId.fromString(id);
         final ResourceGroup resourceGroup = resource.getResourceGroup();
-        if (Objects.isNull(rId.parent()) && Objects.nonNull(resourceGroup) &&
+        if (Objects.isNull(rId.parent()) && Objects.nonNull(resourceGroup) && !this.isMocked() &&
             !(resource instanceof ResourceGroup) && !(resource instanceof ResourceDeployment)) {
             final GenericResourceModule genericResourceModule = resourceGroup.genericResources();
             final GenericResource genericResource = genericResourceModule.newResource(resource);
@@ -542,7 +542,7 @@ public abstract class AbstractAzResourceModule<T extends AbstractAzResource<T, P
     protected Iterator<? extends ContinuablePage<String, R>> loadResourcePagesFromAzure() {
         log.debug("[{}]:loadPagedResourcesFromAzure()", this.getName());
         final Object client = this.getClient();
-        if (!this.parent.exists()) {
+        if (!this.parent.exists() || Objects.isNull(client)) {
             return Collections.emptyIterator();
         } else if (client instanceof SupportsListing) {
             log.debug("[{}]:loadPagedResourcesFromAzure->client.list()", this.name);
@@ -619,7 +619,7 @@ public abstract class AbstractAzResourceModule<T extends AbstractAzResource<T, P
      */
     @Nullable
     protected Object getClient() {
-        throw new AzureToolkitRuntimeException("not implemented");
+        return null;
     }
 
     @Override
@@ -653,12 +653,26 @@ public abstract class AbstractAzResourceModule<T extends AbstractAzResource<T, P
         return Azure.az().config().getPageSize();
     }
 
-    protected boolean isAuthRequiredForListing() {
-        return true;
+    public boolean isAuthRequiredForCreating() {
+        return !isMocked();
+    }
+
+    public boolean isAuthRequiredForListing() {
+        return !isMocked();
     }
 
     protected boolean isAuthRequiredForResource(@Nonnull String resourceId) {
-        return !StringUtils.equalsAnyIgnoreCase(ResourceId.fromString(resourceId).subscriptionId(), Subscription.NONE.getId());
+        return !isMocked(resourceId);
+    }
+
+    public static boolean isMocked(@Nonnull String resourceId) {
+        final String subscriptionId = ResourceId.fromString(resourceId).subscriptionId();
+        return Subscription.MOCK_SUBSCRIPTION_ID.equals(subscriptionId) || !Character.isLetterOrDigit(subscriptionId.charAt(0));
+    }
+
+    public boolean isMocked() {
+        final String subscriptionId = this.getSubscriptionId();
+        return Subscription.MOCK_SUBSCRIPTION_ID.equals(subscriptionId) || !Character.isLetterOrDigit(subscriptionId.trim().charAt(0));
     }
 
     public String getServiceNameForTelemetry() {

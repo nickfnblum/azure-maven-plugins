@@ -12,15 +12,20 @@ import com.microsoft.azure.toolkit.lib.common.messager.AzureMessager;
 import com.microsoft.azure.toolkit.lib.common.model.AbstractAzResourceModule;
 import com.microsoft.azure.toolkit.lib.common.model.Deletable;
 import com.microsoft.azure.toolkit.lib.common.operation.AzureOperation;
+import com.microsoft.azure.toolkit.lib.identities.Identity;
+import com.microsoft.azure.toolkit.lib.identities.model.IdentityConfiguration;
 import com.microsoft.azure.toolkit.lib.servicelinker.ServiceLinkerConsumer;
 import com.microsoft.azure.toolkit.lib.servicelinker.ServiceLinkerModule;
 import lombok.Getter;
+import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 
 @Getter
@@ -79,5 +84,21 @@ public class WebApp extends WebAppBase<WebApp, AppServiceServiceSubscription, co
     protected com.azure.resourcemanager.appservice.models.WebApp doModify(@Nonnull Callable<com.azure.resourcemanager.appservice.models.WebApp> body, @Nullable String status) {
         // override only to provide package visibility
         return super.doModify(body, status);
+    }
+
+    @Override
+    public void updateIdentityConfiguration(final @NotNull IdentityConfiguration configuration) {
+        final com.azure.resourcemanager.appservice.models.WebApp.Update update =
+            remoteOptional().map(com.azure.resourcemanager.appservice.models.WebApp::update).orElse(null);
+        if (Objects.isNull(update)) {
+            return;
+        }
+        if (configuration.isEnableSystemAssignedManagedIdentity()) {
+            update.withSystemAssignedManagedServiceIdentity();
+        }
+        final List<Identity> identities = Optional.ofNullable(configuration.getUserAssignedManagedIdentities()).orElse(Collections.emptyList());
+        identities.stream().map(Identity::getRemote).forEach(update::withExistingUserAssignedManagedServiceIdentity);
+        AzureMessager.getMessager().info(String.format("Updating identity configuration for web app %s...", this.getName()));
+        update.apply();
     }
 }

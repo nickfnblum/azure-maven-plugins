@@ -155,25 +155,27 @@ public class FunctionAppLinuxRuntime implements FunctionAppRuntime {
         loaded.compareAndSet(null, Boolean.TRUE);
     }
 
-    @SuppressWarnings("DataFlowIssue")
     public static void loadAllFunctionAppLinuxRuntimesFromMap(final List<Map<String, Object>> javaVersions) {
         if (!loaded.compareAndSet(Boolean.FALSE, null)) {
             return;
         }
+        RUNTIMES.clear();
+        RUNTIMES.addAll(getLinuxRuntimeFromMap(javaVersions));
+        loaded.compareAndSet(null, Boolean.TRUE);
+    }
+
+    @SuppressWarnings("DataFlowIssue")
+    public static List<FunctionAppLinuxRuntime> getLinuxRuntimeFromMap(final List<Map<String, Object>> javaVersions) {
         final Pattern EXCLUDE_PATTERN = Pattern.compile("\\..*\\.");
         final List<Map<String, Object>> javaMinorVersions = javaVersions.stream()
             .flatMap(majorVersion -> Utils.<List<Map<String, Object>>>get(majorVersion, "$.minorVersions").stream()
                 .filter(minorVersion -> !EXCLUDE_PATTERN.matcher(Utils.get(minorVersion, "$.value")).matches()))
             .collect(Collectors.toList());
-
-        RUNTIMES.clear();
-        javaMinorVersions.forEach(javaMinorVersion -> {
-            final String runtimeVersion = Utils.get(javaMinorVersion, "$.stackSettings.linuxRuntimeSettings.runtimeVersion");
-            if (StringUtils.isNotBlank(runtimeVersion)) {
-                RUNTIMES.add(new FunctionAppLinuxRuntime(javaMinorVersion));
-            }
-        });
-        loaded.compareAndSet(null, Boolean.TRUE);
+        return javaMinorVersions.stream()
+            .map(v -> Utils.<String>get(v, "$.stackSettings.linuxRuntimeSettings.runtimeVersion"))
+            .filter(StringUtils::isNotBlank)
+            .map(FunctionAppLinuxRuntime::new)
+            .collect(Collectors.toList());
     }
 
     public String toString() {

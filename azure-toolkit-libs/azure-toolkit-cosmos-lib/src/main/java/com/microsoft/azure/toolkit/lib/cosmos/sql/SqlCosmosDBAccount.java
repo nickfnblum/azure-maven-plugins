@@ -26,6 +26,11 @@ public class SqlCosmosDBAccount extends CosmosDBAccount {
     private CosmosClient cosmosClient;
     private final SqlDatabaseModule sqlDatabaseModule;
 
+    static {
+        // disable invalid warning for schema key word `then`
+        System.setProperty("org.slf4j.simpleLogger.log.com.azure.cosmos.implementation", "off");
+    }
+
     public SqlCosmosDBAccount(@Nonnull String name, @Nonnull String resourceGroupName, @Nonnull CosmosDBAccountModule module) {
         super(name, resourceGroupName, module);
         this.sqlDatabaseModule = new SqlDatabaseModule(this);

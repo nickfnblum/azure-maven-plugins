@@ -7,8 +7,10 @@ package com.microsoft.azure.toolkit.lib.appservice.config;
 import com.microsoft.azure.toolkit.lib.appservice.model.ApplicationInsightsConfig;
 import com.microsoft.azure.toolkit.lib.appservice.model.ContainerAppFunctionConfiguration;
 import com.microsoft.azure.toolkit.lib.appservice.model.FlexConsumptionConfiguration;
+import com.microsoft.azure.toolkit.lib.containerapps.environment.ContainerAppsEnvironmentDraft;
 import com.microsoft.azure.toolkit.lib.monitor.LogAnalyticsWorkspaceConfig;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -17,6 +19,7 @@ import lombok.experimental.Accessors;
 import lombok.experimental.SuperBuilder;
 import org.apache.commons.lang3.BooleanUtils;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Optional;
 
@@ -31,11 +34,26 @@ public class FunctionAppConfig extends AppServiceConfig {
     private String storageAccountName;
     private String storageAccountResourceGroup;
     private String environment;
+    private ContainerAppsEnvironmentDraft.Config environmentConfig;
     private ContainerAppFunctionConfiguration containerConfiguration;
     private LogAnalyticsWorkspaceConfig workspaceConfig;
     private Boolean enableDistributedTracing;
     private ApplicationInsightsConfig applicationInsightsConfig;
     private FlexConsumptionConfiguration flexConsumptionConfiguration;
+
+    @Builder.Default
+    private Boolean skipEndOfLifeValidation = Boolean.TRUE;
+
+    public String environment() {
+        return Optional.ofNullable(environmentConfig).map(ContainerAppsEnvironmentDraft.Config::getName).orElse(environment);
+    }
+
+    public FunctionAppConfig environment(final String environment) {
+        this.environment = environment;
+        this.environmentConfig = new ContainerAppsEnvironmentDraft.Config();
+        this.environmentConfig.setName(environment);
+        return this;
+    }
 
     public boolean disableAppInsights() {
         return Optional.ofNullable(applicationInsightsConfig)
@@ -69,21 +87,21 @@ public class FunctionAppConfig extends AppServiceConfig {
         return this;
     }
 
-    @Nullable
+    @Nonnull
     public FunctionAppConfig appInsightsInstance(final String appInsightsInstance) {
         this.applicationInsightsConfig = Optional.ofNullable(applicationInsightsConfig).orElseGet(ApplicationInsightsConfig::new);
         this.applicationInsightsConfig.setName(appInsightsInstance);
         return this;
     }
 
-    @Nullable
+    @Nonnull
     public FunctionAppConfig appInsightsKey(final String key) {
         this.applicationInsightsConfig = Optional.ofNullable(applicationInsightsConfig).orElseGet(ApplicationInsightsConfig::new);
         this.applicationInsightsConfig.setInstrumentationKey(key);
         return this;
     }
 
-    @Nullable
+    @Nonnull
     public FunctionAppConfig workspaceConfig(final LogAnalyticsWorkspaceConfig workspaceConfig) {
         this.applicationInsightsConfig = Optional.ofNullable(applicationInsightsConfig).orElseGet(ApplicationInsightsConfig::new);
         this.applicationInsightsConfig.setWorkspaceConfig(workspaceConfig);
@@ -128,5 +146,13 @@ public class FunctionAppConfig extends AppServiceConfig {
 
     public void setFlexConsumptionConfiguration(FlexConsumptionConfiguration flexConsumptionConfiguration) {
         this.flexConsumptionConfiguration = flexConsumptionConfiguration;
+    }
+
+    public void setSkipEndOfLifeValidation(Boolean skipEndOfLifeValidation) {
+        this.skipEndOfLifeValidation = skipEndOfLifeValidation;
+    }
+
+    public Boolean getSkipEndOfLifeValidation() {
+        return skipEndOfLifeValidation;
     }
 }

@@ -55,7 +55,7 @@ public class SchemaValidator {
     }
 
     private SchemaValidator() {
-        Optional.of(new Reflections("schema", Scanners.Resources))
+        Optional.of(new Reflections("schema.com.microsoft.azure.toolkit", Scanners.Resources))
                 .map(reflections -> {
                     try {
                         return reflections.getResources(".*\\.json");

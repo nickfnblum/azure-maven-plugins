@@ -27,6 +27,8 @@ import com.microsoft.azure.toolkit.lib.containerapps.AzureContainerApps;
 import com.microsoft.azure.toolkit.lib.containerapps.AzureContainerAppsServiceSubscription;
 import com.microsoft.azure.toolkit.lib.containerapps.containerapp.ContainerApp;
 import com.microsoft.azure.toolkit.lib.containerapps.environment.ContainerAppsEnvironment;
+import com.microsoft.azure.toolkit.lib.identities.Identity;
+import com.microsoft.azure.toolkit.lib.identities.model.IdentityConfiguration;
 import lombok.Getter;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -239,6 +241,10 @@ public class FunctionApp extends FunctionAppBase<FunctionApp, AppServiceServiceS
         return Optional.ofNullable(this.getRemote()).map(com.azure.resourcemanager.appservice.models.FunctionApp::managedEnvironmentId).orElse(null);
     }
 
+    public boolean isContainerHostingFunctionApp() {
+        return StringUtils.isNotBlank(getEnvironmentId());
+    }
+
     @NotNull
     @Override
     protected String loadStatus(@NotNull final WebAppBase remote) {
@@ -264,5 +270,21 @@ public class FunctionApp extends FunctionAppBase<FunctionApp, AppServiceServiceS
 
     public ContainerAppFunctionConfiguration getContainerConfiguration() {
         return Optional.ofNullable(this.getRemote()).map(ContainerAppFunctionConfiguration::fromFunctionApp).orElse(null);
+    }
+
+    @Override
+    public void updateIdentityConfiguration(final @NotNull IdentityConfiguration configuration) {
+        final com.azure.resourcemanager.appservice.models.FunctionApp.Update update =
+            remoteOptional().map(com.azure.resourcemanager.appservice.models.FunctionApp::update).orElse(null);
+        if (Objects.isNull(update)) {
+            return;
+        }
+        if (configuration.isEnableSystemAssignedManagedIdentity()) {
+            update.withSystemAssignedManagedServiceIdentity();
+        }
+        final List<Identity> identities = Optional.ofNullable(configuration.getUserAssignedManagedIdentities()).orElse(Collections.emptyList());
+        identities.stream().map(Identity::getRemote).forEach(update::withExistingUserAssignedManagedServiceIdentity);
+        AzureMessager.getMessager().info(String.format("Updating identity configuration for function app %s...", this.getName()));
+        update.apply();
     }
 }

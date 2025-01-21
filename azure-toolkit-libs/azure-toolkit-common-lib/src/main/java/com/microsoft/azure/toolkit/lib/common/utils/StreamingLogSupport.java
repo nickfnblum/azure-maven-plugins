@@ -5,9 +5,11 @@
 
 package com.microsoft.azure.toolkit.lib.common.utils;
 
+import com.microsoft.azure.toolkit.lib.common.action.Action;
 import com.microsoft.azure.toolkit.lib.common.exception.AzureToolkitRuntimeException;
 import com.microsoft.azure.toolkit.lib.common.messager.AzureMessager;
 import org.apache.commons.lang3.NotImplementedException;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.http.client.utils.URIBuilder;
 import reactor.core.publisher.Flux;
 
@@ -22,8 +24,21 @@ import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 public interface StreamingLogSupport {
+    Action.Id<StreamingLogSupport> OPEN_STREAMING_LOG = Action.Id.of("user/common.open_stream_logging.name");
+
+    @Nonnull
+    default String getDisplayName() {
+        return StringUtils.EMPTY;
+    }
+
+    @Nonnull
+    default String getId() {
+        return StringUtils.EMPTY;
+    }
+
     default Flux<String> streamingLogs(boolean follow) {
         return streamingLogs(follow, Collections.emptyMap());
     }
@@ -68,7 +83,8 @@ public interface StreamingLogSupport {
         final URIBuilder uriBuilder = new URIBuilder(getLogStreamEndpoint());
         params.forEach(uriBuilder::addParameter);
         final HttpURLConnection connection = (HttpURLConnection) uriBuilder.build().toURL().openConnection();
-        connection.setRequestProperty("Authorization", getLogStreamAuthorization());
+        Optional.ofNullable(getLogStreamAuthorization()).filter(StringUtils::isNoneBlank)
+            .ifPresent(auth -> connection.setRequestProperty("Authorization", auth));
         connection.setReadTimeout(600000);
         connection.setConnectTimeout(3000);
         connection.setRequestMethod("GET");

@@ -157,7 +157,7 @@ public class EventHubsInstance extends AbstractAzResource<EventHubsInstance, Eve
                         .filter(rule -> new HashSet<>(rule.rights()).containsAll(accessRights))
                         .collect(Collectors.toList()))
                 .orElse(new ArrayList<>());
-        if (connectionStrings.size() > 0) {
+        if (!connectionStrings.isEmpty()) {
             return connectionStrings.get(0).getKeys().primaryConnectionString();
         }
         final EventHubsManager manager = getParent().getParent().getRemote();

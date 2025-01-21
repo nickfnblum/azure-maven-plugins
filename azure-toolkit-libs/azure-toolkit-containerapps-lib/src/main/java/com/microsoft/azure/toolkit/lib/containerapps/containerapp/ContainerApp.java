@@ -10,6 +10,7 @@ import com.azure.resourcemanager.appcontainers.fluent.models.ContainerAppInner;
 import com.azure.resourcemanager.appcontainers.models.Configuration;
 import com.azure.resourcemanager.appcontainers.models.Container;
 import com.azure.resourcemanager.appcontainers.models.Ingress;
+import com.azure.resourcemanager.appcontainers.models.ManagedServiceIdentity;
 import com.azure.resourcemanager.appcontainers.models.Template;
 import com.azure.resourcemanager.appcontainers.models.Volume;
 import com.azure.resourcemanager.resources.fluentcore.arm.ResourceId;
@@ -26,7 +27,11 @@ import com.microsoft.azure.toolkit.lib.containerapps.AzureContainerApps;
 import com.microsoft.azure.toolkit.lib.containerapps.AzureContainerAppsServiceSubscription;
 import com.microsoft.azure.toolkit.lib.containerapps.environment.ContainerAppsEnvironment;
 import com.microsoft.azure.toolkit.lib.containerapps.model.IngressConfig;
+import com.microsoft.azure.toolkit.lib.containerapps.model.ResourceConfiguration;
 import com.microsoft.azure.toolkit.lib.containerapps.model.RevisionMode;
+import com.microsoft.azure.toolkit.lib.containerapps.model.WorkloadProfile;
+import com.microsoft.azure.toolkit.lib.containerregistry.AzureContainerRegistry;
+import com.microsoft.azure.toolkit.lib.containerregistry.ContainerRegistry;
 import com.microsoft.azure.toolkit.lib.servicelinker.ServiceLinkerConsumer;
 import com.microsoft.azure.toolkit.lib.servicelinker.ServiceLinkerModule;
 import lombok.Getter;
@@ -36,17 +41,20 @@ import org.apache.commons.lang3.StringUtils;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 @SuppressWarnings("unused")
-public class ContainerApp extends AbstractAzResource<ContainerApp, AzureContainerAppsServiceSubscription, com.azure.resourcemanager.appcontainers.models.ContainerApp> implements Deletable, StreamingLogSupport, ServiceLinkerConsumer  {
+public class ContainerApp extends AbstractAzResource<ContainerApp, AzureContainerAppsServiceSubscription, com.azure.resourcemanager.appcontainers.models.ContainerApp> implements Deletable, StreamingLogSupport, ServiceLinkerConsumer {
     public static final Action.Id<ContainerApp> BROWSE = Action.Id.of("user/containerapps.open_in_browser.app");
     public static final Action.Id<ContainerApp> UPDATE_IMAGE = Action.Id.of("user/containerapps.update_image.app");
 
     public static final String LOG_TYPE_CONSOLE = "console";
     public static final String LOG_TYPE_SYSTEM = "system";
+    public static final String RAW_REQUEST_URL = "subscriptions/%s/resourceGroups/%s/providers/Microsoft.App/containerApps/%s?api-version=%s";
+    public static final String DEVELOPMENT_STACK_API_VERSION = "2024-02-02-preview";
     @Getter
     private final RevisionModule revisionModule;
     private Revision latestRevision = null;
@@ -75,8 +83,8 @@ public class ContainerApp extends AbstractAzResource<ContainerApp, AzureContaine
     protected void updateAdditionalProperties(@Nullable com.azure.resourcemanager.appcontainers.models.ContainerApp newRemote, @Nullable com.azure.resourcemanager.appcontainers.models.ContainerApp oldRemote) {
         super.updateAdditionalProperties(newRemote, oldRemote);
         this.latestRevision = Optional.ofNullable(newRemote)
-                .flatMap(c -> revisionModule.list().stream().filter(r -> Objects.equals(r.getName(), c.latestRevisionName())).findFirst())
-                .orElse(null);
+            .flatMap(c -> revisionModule.list().stream().filter(r -> Objects.equals(r.getName(), c.latestRevisionName())).findFirst())
+            .orElse(null);
     }
 
     @Override
@@ -92,25 +100,52 @@ public class ContainerApp extends AbstractAzResource<ContainerApp, AzureContaine
     @Nullable
     public RevisionMode revisionModel() {
         return Optional.ofNullable(getRemote())
-                .map(com.azure.resourcemanager.appcontainers.models.ContainerApp::configuration)
-                .map(Configuration::activeRevisionsMode)
-                .map(mode -> RevisionMode.fromString(mode.toString()))
-                .orElse(null);
+            .map(com.azure.resourcemanager.appcontainers.models.ContainerApp::configuration)
+            .map(Configuration::activeRevisionsMode)
+            .map(mode -> RevisionMode.fromString(mode.toString()))
+            .orElse(null);
+    }
+
+    @Nullable
+    public ContainerAppDraft.ScaleConfig getScaleConfig() {
+        return Optional.ofNullable(getRemote())
+            .map(com.azure.resourcemanager.appcontainers.models.ContainerApp::template)
+            .map(Template::scale)
+            .map(scale -> ContainerAppDraft.ScaleConfig.builder()
+                .minReplicas(scale.minReplicas())
+                .maxReplicas(scale.maxReplicas())
+                .build()).orElse(null);
     }
 
     @Nullable
     public IngressConfig getIngressConfig() {
         return Optional.ofNullable(getRemote())
-                .map(com.azure.resourcemanager.appcontainers.models.ContainerApp::configuration)
-                .map(conf -> IngressConfig.fromIngress(conf.ingress())).orElse(null);
+            .map(com.azure.resourcemanager.appcontainers.models.ContainerApp::configuration)
+            .map(conf -> IngressConfig.fromIngress(conf.ingress())).orElse(null);
+    }
+
+    @Nullable
+    public ContainerAppDraft.ImageConfig getImageConfig() {
+        final Container container = this.getContainer();
+        if (Objects.nonNull(container)) {
+            final ContainerAppDraft.ImageConfig imageConfig = new ContainerAppDraft.ImageConfig(container.image());
+            final ContainerRegistry registry = Optional.ofNullable(imageConfig.getAcrRegistryName())
+                .flatMap(name -> Azure.az(AzureContainerRegistry.class).list().stream().flatMap(s -> s.registry().list().stream())
+                    .filter(r -> r.getName().equalsIgnoreCase(name)).findFirst())
+                .orElse(null);
+            imageConfig.setContainerRegistry(registry);
+            imageConfig.setEnvironmentVariables(Optional.ofNullable(container.env()).orElse(Collections.emptyList()));
+            return imageConfig;
+        }
+        return null;
     }
 
     @Nullable
     public RevisionMode getRevisionMode() {
         return Optional.ofNullable(getRemote())
-                .map(com.azure.resourcemanager.appcontainers.models.ContainerApp::configuration)
-                .map(Configuration::activeRevisionsMode)
-                .map(arm -> RevisionMode.fromString(arm.toString())).orElse(null);
+            .map(com.azure.resourcemanager.appcontainers.models.ContainerApp::configuration)
+            .map(Configuration::activeRevisionsMode)
+            .map(arm -> RevisionMode.fromString(arm.toString())).orElse(null);
     }
 
     @Nullable
@@ -133,7 +168,7 @@ public class ContainerApp extends AbstractAzResource<ContainerApp, AzureContaine
     public ContainerAppsEnvironment getManagedEnvironment() {
         final String managedEnvironmentId = getManagedEnvironmentId();
         return StringUtils.isEmpty(managedEnvironmentId) ? null :
-                Azure.az(AzureContainerApps.class).environments(this.getSubscriptionId()).get(managedEnvironmentId);
+            Azure.az(AzureContainerApps.class).environments(this.getSubscriptionId()).get(managedEnvironmentId);
     }
 
     @Nullable
@@ -154,7 +189,7 @@ public class ContainerApp extends AbstractAzResource<ContainerApp, AzureContaine
     @Nullable
     public Revision getLatestRevision() {
         return Optional.ofNullable(getLatestRevisionName())
-                .map(name -> this.revisions().get(name, this.getResourceGroupName())).orElse(null);
+            .map(name -> this.revisions().get(name, this.getResourceGroupName())).orElse(null);
     }
 
     @Nullable
@@ -228,8 +263,15 @@ public class ContainerApp extends AbstractAzResource<ContainerApp, AzureContaine
         return revisionModule.list();
     }
 
+    @Nullable
+    public Container getContainer() {
+        return this.remoteOptional().map(com.azure.resourcemanager.appcontainers.models.ContainerApp::template)
+            .map(Template::containers).filter(CollectionUtils::isNotEmpty).map(l -> l.get(0)).orElse(null);
+    }
+
     // refer to https://github.com/Azure/azure-cli-extensions/blob/main/src/containerapp/azext_containerapp/custom.py
-    public @Nullable String getLogStreamEndpoint() {
+    @Nullable
+    public String getLogStreamEndpoint() {
         if (!this.exists()) {
             throw new AzureToolkitRuntimeException(AzureString.format("resource ({0}) not found", getName()).toString());
         }
@@ -249,5 +291,23 @@ public class ContainerApp extends AbstractAzResource<ContainerApp, AzureContaine
     @Override
     public ServiceLinkerModule getServiceLinkerModule() {
         return linkerModule;
+    }
+
+    @Nullable
+    public ResourceConfiguration getResourceConfiguration() {
+        final ContainerAppsEnvironment managedEnvironment = getManagedEnvironment();
+        final com.azure.resourcemanager.appcontainers.models.ContainerApp remote = getRemote();
+        if (Objects.isNull(managedEnvironment) || Objects.isNull(remote)) {
+            return null;
+        }
+        final WorkloadProfile workloadProfile = managedEnvironment.getWorkloadProfiles().stream()
+            .filter(p -> StringUtils.equalsIgnoreCase(p.getName(), remote.workloadProfileName()))
+            .findFirst().orElse(null);
+        return ResourceConfiguration.builder().workloadProfile(workloadProfile).build();
+    }
+
+    @Nullable
+    public ManagedServiceIdentity getIdentity() {
+        return Optional.ofNullable(getRemote()).map(com.azure.resourcemanager.appcontainers.models.ContainerApp::identity).orElse(null);
     }
 }

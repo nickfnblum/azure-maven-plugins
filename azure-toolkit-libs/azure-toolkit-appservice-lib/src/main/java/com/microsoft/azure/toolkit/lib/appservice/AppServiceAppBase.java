@@ -8,6 +8,7 @@ package com.microsoft.azure.toolkit.lib.appservice;
 import com.azure.resourcemanager.appservice.models.CsmPublishingProfileOptions;
 import com.azure.resourcemanager.appservice.models.HostType;
 import com.azure.resourcemanager.appservice.models.HostnameSslState;
+import com.azure.resourcemanager.appservice.models.ManagedServiceIdentity;
 import com.azure.resourcemanager.appservice.models.PublishingProfileFormat;
 import com.azure.resourcemanager.appservice.models.WebAppBase;
 import com.azure.resourcemanager.appservice.models.WebSiteBase;
@@ -30,6 +31,7 @@ import com.microsoft.azure.toolkit.lib.appservice.plan.AppServicePlanModule;
 import com.microsoft.azure.toolkit.lib.appservice.utils.AppServiceUtils;
 import com.microsoft.azure.toolkit.lib.appservice.utils.Utils;
 import com.microsoft.azure.toolkit.lib.common.action.Action;
+import com.microsoft.azure.toolkit.lib.common.exception.AzureToolkitRuntimeException;
 import com.microsoft.azure.toolkit.lib.common.model.AbstractAzResource;
 import com.microsoft.azure.toolkit.lib.common.model.AbstractAzResourceModule;
 import com.microsoft.azure.toolkit.lib.common.model.AzResource;
@@ -38,6 +40,10 @@ import com.microsoft.azure.toolkit.lib.common.model.Region;
 import com.microsoft.azure.toolkit.lib.common.model.Startable;
 import com.microsoft.azure.toolkit.lib.common.operation.AzureOperation;
 import com.microsoft.azure.toolkit.lib.common.utils.StreamingLogSupport;
+import com.microsoft.azure.toolkit.lib.identities.AzureManagedIdentity;
+import com.microsoft.azure.toolkit.lib.identities.Identity;
+import com.microsoft.azure.toolkit.lib.identities.ManagedIdentitySupport;
+import com.microsoft.azure.toolkit.lib.identities.model.IdentityConfiguration;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import reactor.core.publisher.Flux;
@@ -51,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @SuppressWarnings("unused")
 @Slf4j
@@ -58,7 +65,7 @@ public abstract class AppServiceAppBase<
     T extends AppServiceAppBase<T, P, F>,
     P extends AbstractAzResource<P, ?, ?>,
     F extends WebAppBase>
-    extends AbstractAzResource<T, P, F> implements Startable, Deletable, StreamingLogSupport {
+    extends AbstractAzResource<T, P, F> implements Startable, Deletable, StreamingLogSupport, ManagedIdentitySupport {
     public static final String SETTING_DOCKER_IMAGE = "DOCKER_CUSTOM_IMAGE_NAME";
     public static final String SETTING_REGISTRY_SERVER = "DOCKER_REGISTRY_SERVER_URL";
 
@@ -249,5 +256,27 @@ public abstract class AppServiceAppBase<
     @Override
     protected void setRemote(F remote) {
         super.setRemote(remote);
+    }
+
+    @Nullable
+    public IdentityConfiguration getIdentityConfiguration() {
+        final ManagedServiceIdentity identity = remoteOptional().map(WebAppBase::identity).orElse(null);
+        if (Objects.isNull(identity)) {
+            return null;
+        }
+        final boolean enableSystemAssignedIdentity = StringUtils.containsIgnoreCase(identity.type().toString(), "SystemAssigned");
+        final List<Identity> identities = Objects.isNull(identity.userAssignedIdentities()) ? Collections.emptyList() :
+            identity.userAssignedIdentities().keySet().stream().map(id -> (Identity) Azure.az(AzureManagedIdentity.class).getById(id)).collect(Collectors.toList());
+        return IdentityConfiguration.builder()
+            .enableSystemAssignedManagedIdentity(enableSystemAssignedIdentity)
+            .principalId(identity.principalId())
+            .tenantId(identity.tenantId())
+            .userAssignedManagedIdentities(identities)
+            .build();
+    }
+
+    @Override
+    public void updateIdentityConfiguration(@Nonnull final IdentityConfiguration configuration) {
+        throw new AzureToolkitRuntimeException("not supported");
     }
 }

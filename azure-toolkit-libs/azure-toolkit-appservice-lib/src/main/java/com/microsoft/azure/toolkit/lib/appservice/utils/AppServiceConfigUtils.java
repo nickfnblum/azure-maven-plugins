@@ -9,14 +9,17 @@ import com.microsoft.azure.toolkit.lib.Azure;
 import com.microsoft.azure.toolkit.lib.appservice.AppServiceAppBase;
 import com.microsoft.azure.toolkit.lib.appservice.AzureAppService;
 import com.microsoft.azure.toolkit.lib.appservice.config.AppServiceConfig;
+import com.microsoft.azure.toolkit.lib.appservice.config.DeploymentSlotConfig;
 import com.microsoft.azure.toolkit.lib.appservice.config.FunctionAppConfig;
 import com.microsoft.azure.toolkit.lib.appservice.config.RuntimeConfig;
 import com.microsoft.azure.toolkit.lib.appservice.function.FunctionApp;
 import com.microsoft.azure.toolkit.lib.appservice.function.FunctionAppBase;
+import com.microsoft.azure.toolkit.lib.appservice.function.FunctionAppDeploymentSlot;
 import com.microsoft.azure.toolkit.lib.appservice.model.FlexConsumptionConfiguration;
 import com.microsoft.azure.toolkit.lib.appservice.model.Runtime;
 import com.microsoft.azure.toolkit.lib.appservice.model.WebAppRuntime;
 import com.microsoft.azure.toolkit.lib.appservice.plan.AppServicePlan;
+import com.microsoft.azure.toolkit.lib.appservice.webapp.WebAppDeploymentSlot;
 import com.microsoft.azure.toolkit.lib.common.exception.AzureToolkitRuntimeException;
 import com.microsoft.azure.toolkit.lib.common.model.Region;
 import com.microsoft.azure.toolkit.lib.containerapps.environment.ContainerAppsEnvironment;
@@ -25,7 +28,6 @@ import org.apache.commons.lang3.StringUtils;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 import static com.microsoft.azure.toolkit.lib.common.utils.Utils.copyProperties;
@@ -35,17 +37,20 @@ public class AppServiceConfigUtils {
 
     public static FunctionAppConfig fromFunctionApp(@Nonnull FunctionAppBase<?, ?, ?> app) {
         return app instanceof FunctionApp && StringUtils.isNotBlank(((FunctionApp) app).getEnvironmentId()) ?
-            fromFunctionApp((FunctionApp) app, Objects.requireNonNull(((FunctionApp) app).getEnvironment())) :
-            fromFunctionApp(app, Objects.requireNonNull(app.getAppServicePlan()));
+            fromFunctionApp((FunctionApp) app, ((FunctionApp) app).getEnvironment()) :
+            fromFunctionApp(app, app.getAppServicePlan());
     }
 
-    public static FunctionAppConfig fromFunctionApp(@Nonnull FunctionAppBase<?, ?, ?> app, @Nonnull AppServicePlan servicePlan) {
+    public static FunctionAppConfig fromFunctionApp(@Nonnull FunctionAppBase<?, ?, ?> app, @Nullable AppServicePlan servicePlan) {
         final FunctionAppConfig result = new FunctionAppConfig();
         fromAppService(app, servicePlan, result);
         // todo merge storage account configurations
         // todo merge application insights configurations
-        final FlexConsumptionConfiguration flexConsumptionConfiguration = app.getFlexConsumptionConfiguration();
-        Optional.ofNullable(flexConsumptionConfiguration).ifPresent(result::flexConsumptionConfiguration);
+        if (app instanceof FunctionApp) {
+            // flex consumption did not support function deployment slot for now
+            final FlexConsumptionConfiguration flexConsumptionConfiguration = app.getFlexConsumptionConfiguration();
+            Optional.ofNullable(flexConsumptionConfiguration).ifPresent(result::flexConsumptionConfiguration);
+        }
         return result;
     }
 
@@ -60,14 +65,16 @@ public class AppServiceConfigUtils {
     }
 
     public static AppServiceConfig fromAppService(@Nonnull AppServiceAppBase<?, ?, ?> app) {
-        return app instanceof FunctionApp ? fromFunctionApp((FunctionApp) app) : fromAppService(app, app.getAppServicePlan(), new AppServiceConfig());
+        return app instanceof FunctionAppBase ? fromFunctionApp((FunctionAppBase<?,?,?>) app) : fromAppService(app, app.getAppServicePlan(), new AppServiceConfig());
     }
 
     public static AppServiceConfig fromAppService(@Nonnull AppServiceAppBase<?, ?, ?> app, @Nonnull AppServicePlan servicePlan) {
         return fromAppService(app, servicePlan, new AppServiceConfig());
     }
 
-    public static AppServiceConfig fromAppService(@Nonnull AppServiceAppBase<?, ?, ?> app, @Nullable AppServicePlan servicePlan, @Nonnull AppServiceConfig config) {
+    public static AppServiceConfig fromAppService(@Nonnull AppServiceAppBase<?, ?, ?> base, @Nullable AppServicePlan servicePlan, @Nonnull AppServiceConfig config) {
+        final AppServiceAppBase<?, ?, ?> app = base instanceof WebAppDeploymentSlot ? ((WebAppDeploymentSlot) base).getParent() :
+            base instanceof FunctionAppDeploymentSlot ? ((FunctionAppDeploymentSlot) base).getParent() : base;
         config.appName(app.getName());
 
         config.resourceGroup(app.getResourceGroupName());
@@ -89,6 +96,9 @@ public class AppServiceConfigUtils {
         Optional.ofNullable(servicePlan).map(AppServicePlan::getPricingTier).ifPresent(config::pricingTier);
         Optional.ofNullable(servicePlan).map(AppServicePlan::getName).ifPresent(config::servicePlanName);
         Optional.ofNullable(servicePlan).map(AppServicePlan::getResourceGroupName).ifPresent(config::servicePlanResourceGroup);
+        if (base instanceof FunctionAppDeploymentSlot || base instanceof WebAppDeploymentSlot) {
+            config.setSlotConfig(DeploymentSlotConfig.builder().name(base.getName()).build());
+        }
         return config;
     }
 

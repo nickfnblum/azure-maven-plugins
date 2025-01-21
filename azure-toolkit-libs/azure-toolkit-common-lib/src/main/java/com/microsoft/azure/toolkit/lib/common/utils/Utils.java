@@ -7,10 +7,16 @@ package com.microsoft.azure.toolkit.lib.common.utils;
 
 import com.azure.resourcemanager.resources.fluentcore.utils.ResourceNamer;
 import com.google.common.base.Preconditions;
+import com.microsoft.azure.toolkit.lib.common.bundle.AzureString;
 import com.microsoft.azure.toolkit.lib.common.exception.AzureToolkitRuntimeException;
 import com.microsoft.azure.toolkit.lib.common.exception.CommandExecuteException;
+import com.microsoft.azure.toolkit.lib.common.messager.AzureMessager;
+import lombok.SneakyThrows;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.collections4.MapUtils;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
+import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.ObjectUtils;
@@ -19,15 +25,23 @@ import org.apache.commons.lang3.reflect.FieldUtils;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.math.BigInteger;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.text.SimpleDateFormat;
 import java.util.Collection;
 import java.util.Collections;
@@ -73,7 +87,7 @@ public class Utils {
 
     public static int getJavaMajorVersion(final String javaVersion) {
         final String runtimeJavaMajorVersion = StringUtils.startsWith(javaVersion, "1.") ?
-                StringUtils.substring(javaVersion, 2, 3) : StringUtils.split(javaVersion, ".")[0];
+            StringUtils.substring(javaVersion, 2, 3) : StringUtils.split(javaVersion, ".")[0];
         return Integer.parseInt(runtimeJavaMajorVersion);
     }
 
@@ -85,13 +99,13 @@ public class Utils {
      * @throws AzureToolkitRuntimeException If there is no class file in target artifact or meet IOException when read target artifact
      */
     public static int getArtifactCompileVersion(@Nonnull final File artifact) throws AzureToolkitRuntimeException {
-        try (JarFile jarFile = new JarFile(artifact)) {
+        try (final JarFile jarFile = new JarFile(artifact)) {
             final Manifest manifest = jarFile.getManifest();
             final JarEntry userEntry = getUserEntry(jarFile, manifest);
             final JarEntry springStartEntry = getSpringStartEntry(jarFile, manifest);
             return Stream.of(userEntry, springStartEntry).filter(Objects::nonNull).mapToInt(entry -> getJarEntryJavaVersion(jarFile, entry)).max()
-                    .orElseThrow(() -> new AzureToolkitRuntimeException("Failed to parse artifact compile version, no valid class file founded in target artifact"));
-        } catch (IOException e) {
+                .orElseThrow(() -> new AzureToolkitRuntimeException("Failed to parse artifact compile version, no valid class file founded in target artifact"));
+        } catch (final IOException e) {
             throw new AzureToolkitRuntimeException("Failed to parse artifact compile version, no class file founded in target artifact", e);
         }
     }
@@ -106,7 +120,7 @@ public class Utils {
     @Nullable
     private static JarEntry getUserEntry(@Nonnull final JarFile jarFile, @Nonnull final Manifest manifest) {
         return Optional.ofNullable(manifest.getMainAttributes().getValue(MAIN_CLASS)).map(Utils::getJarEntryName).map(jarFile::getJarEntry)
-                .orElseGet(() -> jarFile.stream().filter(entry -> StringUtils.endsWith(entry.getName(), CLASS)).findFirst().orElse(null));
+            .orElseGet(() -> jarFile.stream().filter(entry -> StringUtils.endsWith(entry.getName(), CLASS)).findFirst().orElse(null));
     }
 
     private static int getJarEntryJavaVersion(@Nonnull final JarFile jarFile, @Nonnull final JarEntry jarEntry) {
@@ -118,13 +132,13 @@ public class Utils {
             stream.read(version);
             stream.close();
             return new BigInteger(version).intValueExact() - 44;
-        } catch (IOException e) {
+        } catch (final IOException e) {
             throw new AzureToolkitRuntimeException(String.format("Failed to parse compile version of entry %s", jarEntry.getName()), e);
         }
     }
 
     @Nonnull
-    private static String getJarEntryName(@Nonnull final String className){
+    private static String getJarEntryName(@Nonnull final String className) {
         final String fullName = StringUtils.replace(className, ".", "/");
         return fullName + ".class";
     }
@@ -132,7 +146,7 @@ public class Utils {
     public static boolean isGUID(String input) {
         try {
             return UUID.fromString(input).toString().equalsIgnoreCase(input);
-        } catch (Exception e) {
+        } catch (final Exception e) {
             return false;
         }
     }
@@ -140,6 +154,7 @@ public class Utils {
     // Copied from https://github.com/microsoft/azure-tools-for-java/blob/azure-intellij-toolkit-v3.39.0/Utils/
     // azuretools-core/src/com/microsoft/azuretools/core/mvp/model/AzureMvpModel.java
     // Todo: Remove duplicated utils function in azure-tools-for-java
+    @Nullable
     public static String getSegment(String id, String segment) {
         if (StringUtils.isEmpty(id)) {
             return null;
@@ -197,7 +212,7 @@ public class Utils {
         final Process p = Runtime.getRuntime().exec(cmds, null, cwd);
         final int exitCode = p.waitFor();
         if (exitCode != 0) {
-            String errorLog = IOUtils.toString(p.getErrorStream(), StandardCharsets.UTF_8);
+            final String errorLog = IOUtils.toString(p.getErrorStream(), StandardCharsets.UTF_8);
             throw new CommandExecuteException(String.format("Cannot execute '%s' due to error: %s", cmd, errorLog));
         }
         return IOUtils.toString(p.getInputStream(), StandardCharsets.UTF_8);
@@ -226,7 +241,7 @@ public class Utils {
     }
 
     public static <T> Predicate<T> distinctByKey(Function<? super T, ?> keyExtractor) {
-        Set<Object> seen = ConcurrentHashMap.newKeySet();
+        final Set<Object> seen = ConcurrentHashMap.newKeySet();
         return t -> seen.add(keyExtractor.apply(t));
     }
 
@@ -238,7 +253,7 @@ public class Utils {
     }
 
     public static <T> void copyProperties(T to, T from, boolean whenNotSet) throws IllegalAccessException {
-        for (Field field : FieldUtils.getAllFields(from.getClass())) {
+        for (final Field field : FieldUtils.getAllFields(from.getClass())) {
             if (Modifier.isFinal(field.getModifiers()) || Modifier.isStatic(field.getModifiers())) {
                 continue;
             }
@@ -256,18 +271,17 @@ public class Utils {
         }
     }
 
+    @Nullable
     public static <T> T emptyToNull(T t) {
-        if (t instanceof Map && MapUtils.isEmpty((Map<?, ?>) t)) {
-            return null;
-        } else if (t instanceof CharSequence && StringUtils.isBlank((CharSequence) t)) {
-            return null;
-        } else if (t instanceof Collection && CollectionUtils.isEmpty((Collection<?>) t)) {
+        if (t instanceof Map && MapUtils.isEmpty((Map<?, ?>) t) ||
+            t instanceof CharSequence && StringUtils.isBlank((CharSequence) t) ||
+            t instanceof Collection && CollectionUtils.isEmpty((Collection<?>) t)) {
             return null;
         }
         return t;
     }
 
-    public static boolean isUrlAccessible(@Nonnull final String url, @Nonnull final Integer... validResponseCodes)  {
+    public static boolean isUrlAccessible(@Nonnull final String url, @Nonnull final Integer... validResponseCodes) {
         HttpURLConnection.setFollowRedirects(false);
         HttpURLConnection con = null;
         try {
@@ -275,7 +289,7 @@ public class Utils {
             con.setRequestMethod("HEAD");
             con.setReadTimeout(DEFAULT_TIMEOUT);
             return ArrayUtils.contains(validResponseCodes, con.getResponseCode());
-        } catch (IOException ex) {
+        } catch (final IOException ex) {
             return false;
         } finally {
             Optional.ofNullable(con).ifPresent(HttpURLConnection::disconnect);
@@ -286,6 +300,7 @@ public class Utils {
         return list.stream().anyMatch(item -> StringUtils.equalsIgnoreCase(target, item));
     }
 
+    @Nullable
     @SuppressWarnings("unchecked")
     public static <T> T get(Map<String, Object> data, String path) {
         if (!path.startsWith("$.")) {
@@ -301,5 +316,57 @@ public class Utils {
             obj = d.get(p);
         }
         return (T) obj;
+    }
+
+    @SneakyThrows(IOException.class)
+    public static Path tar(Path source, Predicate<Path> ignore) {
+        if (!Files.isDirectory(source)) {
+            throw new IOException("Please provide a directory.");
+        }
+        // get folder name as zip file name
+        final Path tarFilePath = Paths.get(System.getProperty("java.io.tmpdir")).resolve(String.format("build_archive_%s.tar.gz", UUID.randomUUID()));
+        try (final OutputStream fOut = Files.newOutputStream(tarFilePath);
+             final BufferedOutputStream buffOut = new BufferedOutputStream(fOut);
+             final GzipCompressorOutputStream gzOut = new GzipCompressorOutputStream(buffOut);
+             final TarArchiveOutputStream tOut = new TarArchiveOutputStream(gzOut)) {
+            tOut.setLongFileMode(TarArchiveOutputStream.LONGFILE_POSIX);
+            Files.walkFileTree(source, new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult preVisitDirectory(final Path dir, final BasicFileAttributes attrs) throws IOException {
+                    if (attrs.isSymbolicLink() || ignore.test(dir)) {
+                        return FileVisitResult.SKIP_SUBTREE;
+                    }
+                    return super.preVisitDirectory(dir, attrs);
+                }
+
+                @Override
+                public FileVisitResult visitFile(Path path, BasicFileAttributes attributes) {
+                    // only copy files, no symbolic links
+                    if (attributes.isSymbolicLink() || ignore.test(path)) {
+                        return FileVisitResult.CONTINUE;
+                    }
+                    // get filename
+                    final Path targetFile = source.relativize(path);
+                    try {
+                        final TarArchiveEntry tarEntry = new TarArchiveEntry(path.toFile(), targetFile.toString());
+                        tOut.putArchiveEntry(tarEntry);
+                        Files.copy(path, tOut);
+                        tOut.closeArchiveEntry();
+                        AzureMessager.getMessager().progress(AzureString.format("compressing : %s", path));
+                    } catch (final IOException e) {
+                        AzureMessager.getMessager().warning(AzureString.format("Unable to compress : %s", path));
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult visitFileFailed(Path file, IOException exc) {
+                    System.err.printf("Unable to tar.gz : %s%n%s%n", file, exc);
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+            tOut.finish();
+        }
+        return tarFilePath;
     }
 }

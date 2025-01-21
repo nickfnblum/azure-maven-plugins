@@ -34,8 +34,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class FunctionsServiceSubscription extends AppServiceServiceSubscription {
-    private static final ObjectMapper mapper = new ObjectMapper();
-    private static final TypeReference<HashMap<String, Object>> typeRef = new TypeReference<HashMap<String, Object>>() {
+    public static final ObjectMapper mapper = new ObjectMapper();
+    public static final TypeReference<HashMap<String, Object>> typeRef = new TypeReference<HashMap<String, Object>>() {
     };
 
     protected FunctionsServiceSubscription(@Nonnull String subscriptionId, @Nonnull AzureAppService service) {

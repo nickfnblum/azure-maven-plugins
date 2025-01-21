@@ -19,6 +19,7 @@ import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 @Getter
 public class MicrosoftSqlServiceSubscription extends AbstractAzServiceSubscription<MicrosoftSqlServiceSubscription, SqlServerManager> {
@@ -62,7 +63,8 @@ public class MicrosoftSqlServiceSubscription extends AbstractAzServiceSubscripti
     public boolean checkRegionAvailability(@Nonnull Region region) {
         RegionCapabilities capabilities = Objects.requireNonNull(this.getRemote()).sqlServers()
             .getCapabilitiesByRegion(com.azure.core.management.Region.fromName(region.getName()));
-        return Objects.nonNull(capabilities.status()) && CapabilityStatus.AVAILABLE == capabilities.status();
+
+        return Optional.ofNullable(capabilities).map(RegionCapabilities::status).filter(s -> s == CapabilityStatus.AVAILABLE).isPresent();
     }
 }
 

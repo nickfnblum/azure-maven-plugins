@@ -352,6 +352,14 @@ public interface IAzureMessager {
         this.alert(message, null);
     }
 
+    default void progress(@Nonnull String message) {
+        this.show(this.buildMessage(IAzureMessage.Type.PROGRESS, AzureString.fromString(message), null, null, null));
+    }
+
+    default void progress(@Nonnull AzureString message) {
+        this.show(this.buildMessage(IAzureMessage.Type.PROGRESS, message, null, null, null));
+    }
+
     default void success(@Nonnull String message) {
         this.success(message, (Object[]) null);
     }
@@ -397,7 +405,7 @@ public interface IAzureMessager {
     }
 
     default AzureMessage buildMessage(@Nonnull IAzureMessage.Type type, @Nonnull AzureString content,
-                                       @Nullable String title, @Nullable Object[] actions, @Nullable Object payload) {
+                                      @Nullable String title, @Nullable Object[] actions, @Nullable Object payload) {
         final AzureMessage message = new AzureMessage(type, content).setPayload(payload).setActions(actions).setTitle(title);
         if (this instanceof IAzureMessage.ValueDecorator) {
             message.setValueDecorator((IAzureMessage.ValueDecorator) this);

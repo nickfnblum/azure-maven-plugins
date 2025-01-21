@@ -5,10 +5,17 @@
 
 package com.microsoft.azure.toolkit.lib.common.model;
 
+import com.azure.core.credential.TokenCredential;
 import com.azure.core.exception.HttpResponseException;
 import com.azure.core.http.HttpResponse;
+import com.azure.core.management.profile.AzureProfile;
+import com.azure.resourcemanager.authorization.AuthorizationManager;
+import com.azure.resourcemanager.authorization.models.BuiltInRole;
+import com.azure.resourcemanager.authorization.models.RoleAssignment;
+import com.azure.resourcemanager.authorization.models.RoleDefinition;
 import com.azure.resourcemanager.resources.fluentcore.arm.ResourceId;
 import com.microsoft.azure.toolkit.lib.Azure;
+import com.microsoft.azure.toolkit.lib.account.IAccount;
 import com.microsoft.azure.toolkit.lib.account.IAzureAccount;
 import com.microsoft.azure.toolkit.lib.common.cache.Cache1;
 import com.microsoft.azure.toolkit.lib.common.event.AzureEventBus;
@@ -31,9 +38,12 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Slf4j
 @ToString(onlyExplicitlyIncluded = true)
@@ -95,7 +105,7 @@ public abstract class AbstractAzResource<T extends AbstractAzResource<T, P, R>, 
         final P parent = this.getParent();
         if (StringUtils.equals(this.status.get(), Status.DELETED)) {
             return false;
-        } else if (parent.equals(AzResource.NONE) || this instanceof AbstractAzServiceSubscription || this instanceof ResourceGroup) {
+        } else if (this.isMocked() || parent.equals(AzResource.NONE) || this instanceof AbstractAzServiceSubscription || this instanceof ResourceGroup) {
             return this.remoteOptional().isPresent();
         } else {
             final ResourceGroup rg = this.getResourceGroup();
@@ -300,11 +310,11 @@ public abstract class AbstractAzResource<T extends AbstractAzResource<T, P, R>, 
     public ResourceGroup getResourceGroup() {
         final String rgName = this.getResourceGroupName();
         final String sid = this.getSubscriptionId();
-        final boolean isSubscriptionSet = StringUtils.isNotBlank(sid) &&
+        final boolean isSubscriptionSet = StringUtils.isNotBlank(sid) && !this.isMocked() &&
             !StringUtils.equalsAnyIgnoreCase(sid, "<none>", NONE.getName());
-        final boolean isResourceGroupSet = StringUtils.isNotBlank(rgName) &&
+        final boolean isResourceGroupSet = isSubscriptionSet && StringUtils.isNotBlank(rgName) &&
             !StringUtils.equalsAnyIgnoreCase(rgName, "<none>", NONE.getName(), RESOURCE_GROUP_PLACEHOLDER);
-        if (!isResourceGroupSet || !isSubscriptionSet) {
+        if (!isResourceGroupSet) {
             return null;
         }
         return Azure.az(AzureResources.class).groups(this.getSubscriptionId()).get(rgName, rgName);
@@ -330,8 +340,8 @@ public abstract class AbstractAzResource<T extends AbstractAzResource<T, P, R>, 
         return this instanceof Draft && Objects.nonNull(((Draft<?, ?>) this).getOrigin());
     }
 
-    protected boolean isAuthRequired() {
-        return true;
+    public boolean isAuthRequired() {
+        return !this.isMocked();
     }
 
     public static boolean is404(Throwable t) {
@@ -356,5 +366,64 @@ public abstract class AbstractAzResource<T extends AbstractAzResource<T, P, R>, 
             .map(HttpResponseException::getResponse)
             .filter(predicate)
             .isPresent();
+    }
+
+    public boolean isMocked() {
+        final String subscriptionId = this.getSubscriptionId();
+        return Subscription.MOCK_SUBSCRIPTION_ID.equals(subscriptionId) || !Character.isLetterOrDigit(subscriptionId.trim().charAt(0));
+    }
+
+    public void grantPermissionToIdentity(final String identity, final String role) {
+        final AuthorizationManager authorizationManager = getAuthorizationManager();
+        final String roleAssignmentName = UUID.randomUUID().toString();
+        authorizationManager.roleAssignments().define(roleAssignmentName)
+            .forObjectId(identity)
+            .withRoleDefinition(role)
+            .withScope(this.getId())
+            .create();
+    }
+
+    public void grantPermissionToIdentity(final String identity, final BuiltInRole role) {
+        final AuthorizationManager authorizationManager = getAuthorizationManager();
+        final String roleAssignmentName = UUID.randomUUID().toString();
+        authorizationManager.roleAssignments().define(roleAssignmentName)
+            .forObjectId(identity)
+            .withBuiltInRole(role)
+            .withScope(this.getId())
+            .create();
+    }
+
+    public List<RoleAssignment> getRoleAssignments(final String identity) {
+        final AuthorizationManager authorizationManager = getAuthorizationManager();
+        return authorizationManager.roleAssignments()
+            .listByScope(this.getId()).stream()
+            .filter(assignment -> StringUtils.equalsIgnoreCase(assignment.principalId(), identity))
+            .collect(Collectors.toList());
+    }
+
+    public List<RoleDefinition> getRoleDefinitions(final String identity) {
+        final AuthorizationManager authorizationManager = getAuthorizationManager();
+        final List<RoleAssignment> roleAssignments = getRoleAssignments(identity);
+        return roleAssignments.stream()
+            .map(role -> authorizationManager.roleDefinitions().getById(role.roleDefinitionId()))
+            .collect(Collectors.toList());
+    }
+
+    public List<String> getPermissions(final String identity) {
+        return getRoleDefinitions(identity).stream()
+            .flatMap(rd -> rd.permissions().stream())
+            .flatMap(p -> Stream.of(p.actions(), p.notActions(), p.dataActions(), p.notDataActions()).flatMap(List::stream)).collect(Collectors.toList());
+    }
+
+    // todo: add cache for different subscriptions
+    // todo: resource could overwrite this implementation so that they could re-use the same authorization manager from their service client
+    @Nonnull
+    protected AuthorizationManager getAuthorizationManager() {
+        final String subscriptionId = this.getSubscriptionId();
+        final IAccount account = Azure.az(IAzureAccount.class).account();
+        final Subscription subscription = account.getSubscription(subscriptionId);
+        final TokenCredential tokenCredential = account.getTokenCredential(subscriptionId);
+        final AzureProfile profile = new AzureProfile(subscription.getTenantId(), subscriptionId, account.getEnvironment());
+        return AuthorizationManager.authenticate(tokenCredential, profile);
     }
 }
