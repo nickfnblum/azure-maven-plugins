@@ -6,15 +6,13 @@
 package com.microsoft.azure.maven.containerapps.config;
 
 import com.azure.resourcemanager.appcontainers.models.EnvironmentVar;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.Data;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.annotation.Nullable;
 import java.util.List;
 
-@Getter
-@Setter
+@Data
 public class AppContainerMavenConfig {
 
     @Nullable

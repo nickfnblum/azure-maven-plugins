@@ -16,12 +16,15 @@ import com.microsoft.azure.toolkit.lib.containerapps.model.ResourceConfiguration
 import com.microsoft.azure.toolkit.lib.containerregistry.AzureContainerRegistry;
 import com.microsoft.azure.toolkit.lib.containerregistry.ContainerRegistry;
 import com.microsoft.azure.toolkit.lib.containerregistry.config.ContainerRegistryConfig;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 public class ConfigParser {
@@ -57,15 +60,34 @@ public class ConfigParser {
         if (containers == null || containers.isEmpty()) {
             return null;
         }
-        final String defaultImageName = String.format("%s%s/%s:%s", config.getRegistryConfig().getRegistryName(), ContainerRegistry.ACR_IMAGE_SUFFIX, mojo.getAppName(), timestamp);
-        final String fullImageName = Optional.ofNullable(containers.get(0).getImage()).orElse(defaultImageName);
-        final ContainerAppDraft.ImageConfig imageConfig = new ContainerAppDraft.ImageConfig(fullImageName);
-        if (containers.get(0).getEnvironment() != null) {
-            imageConfig.setEnvironmentVariables(containers.get(0).getEnvironment());
+        AppContainerMavenConfig container = containers.get(0);
+        if (container.getDeploymentType() == DeploymentType.IMAGE && Objects.isNull(container.getImage())) {
+            throw new AzureToolkitRuntimeException("Image is required for image type deployment");
         }
-        if (containers.get(0).getDeploymentType() == DeploymentType.CODE || containers.get(0).getDeploymentType() == DeploymentType.ARTIFACT) {
+        final String defaultImageName = String.format("%s%s/%s:%s", config.getRegistryConfig().getRegistryName(), ContainerRegistry.ACR_IMAGE_SUFFIX, mojo.getAppName(), timestamp);
+        final String fullImageName = Optional.ofNullable(container.getImage()).orElse(defaultImageName);
+        final ContainerAppDraft.ImageConfig imageConfig = new ContainerAppDraft.ImageConfig(fullImageName);
+        if (container.getEnvironment() != null) {
+            imageConfig.setEnvironmentVariables(container.getEnvironment());
+        }
+        if (container.getDeploymentType() == DeploymentType.CODE || container.getDeploymentType() == DeploymentType.ARTIFACT) {
             ContainerAppDraft.BuildImageConfig buildImageConfig = new ContainerAppDraft.BuildImageConfig();
-            buildImageConfig.setSource(Paths.get(containers.get(0).getDirectory()));
+            Path source = null;
+            if (container.getDirectory() == null) {
+                if (container.getDeploymentType() == DeploymentType.CODE) {
+                    source = Paths.get(mojo.getProject().getBasedir().getAbsolutePath());
+                }
+                if (container.getDeploymentType() == DeploymentType.ARTIFACT) {
+                    source = Paths.get(mojo.getProject().getBuild().getDirectory()).resolve(mojo.getProject().getBuild().getFinalName() + ".jar");
+                }
+            }
+            else {
+                source = Paths.get(container.getDirectory());
+            }
+            if (!source.toFile().exists()) {
+                throw new AzureToolkitRuntimeException("Code/Artifact directory does not exist");
+            }
+            buildImageConfig.setSource(source);
             //Check if we can generate dockerfile for this project. Currently only support spring boot project
             if (!imageConfig.sourceHasDockerFile()) {
                 if (!MavenUtils.isSpringBootProject(mojo.getProject())) {
@@ -92,23 +114,29 @@ public class ConfigParser {
         if (containers == null || containers.isEmpty()) {
             return null;
         }
-        if (containers.get(0).getCpu() == null && containers.get(0).getMemory() == null) {
+        AppContainerMavenConfig container = containers.get(0);
+        if (container.getCpu() == null && container.getMemory() == null) {
             return null;
         }
         final ResourceConfiguration resourceConfiguration = new ResourceConfiguration();
-        resourceConfiguration.setCpu(containers.get(0).getCpu());
-        resourceConfiguration.setMemory(containers.get(0).getMemory());
+        resourceConfiguration.setCpu(container.getCpu());
+        resourceConfiguration.setMemory(container.getMemory());
         return resourceConfiguration;
     }
 
     public IngressConfig getIngressConfig(IngressMavenConfig ingressMavenConfig) {
-        if (ingressMavenConfig == null) {
+        if (Objects.isNull(ingressMavenConfig) ||
+            (Objects.isNull(ingressMavenConfig.getExternal()) && Objects.isNull(ingressMavenConfig.getTargetPort()))) {
             return null;
         }
         IngressConfig ingressConfig = new IngressConfig();
         ingressConfig.setEnableIngress(true);
-        ingressConfig.setExternal(ingressMavenConfig.getExternal());
-        ingressConfig.setTargetPort(ingressMavenConfig.getTargetPort());
+        if (Objects.nonNull(ingressMavenConfig.getExternal())) {
+            ingressConfig.setExternal(ingressMavenConfig.getExternal());
+        }
+        if (Objects.nonNull(ingressMavenConfig.getTargetPort())) {
+            ingressConfig.setTargetPort(ingressMavenConfig.getTargetPort());
+        }
         return ingressConfig;
     }
 
