@@ -32,6 +32,7 @@ public class ConfigParser {
     public FunctionAppConfig parseConfig() {
         return (FunctionAppConfig) new FunctionAppConfig()
                 .flexConsumptionConfiguration(getFlexConsumptionConfiguration())
+                .skipEndOfLifeValidation(mojo.getSkipEndOfLifeValidation())
                 .disableAppInsights(mojo.isDisableAppInsights())
                 .enableDistributedTracing(mojo.getEnableDistributedTracing())
                 .appInsightsKey(mojo.getAppInsightsKey())

@@ -66,6 +66,7 @@ import lombok.Getter;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.collections4.MapUtils;
+import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -74,6 +75,7 @@ import org.apache.commons.lang3.exception.ExceptionUtils;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -85,6 +87,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+
+import static com.microsoft.azure.toolkit.lib.appservice.model.Runtime.FUNCTION_UPGRADE_RUNTIME_LINK;
 
 public class FunctionAppDraft extends FunctionApp implements AzResource.Draft<FunctionApp, com.azure.resourcemanager.appservice.models.FunctionApp> {
     private static final String CREATE_NEW_FUNCTION_APP = "isCreateNewFunctionApp";
@@ -150,6 +154,13 @@ public class FunctionAppDraft extends FunctionApp implements AzResource.Draft<Fu
 
         final String name = getName();
         final FunctionAppRuntime newRuntime = Objects.requireNonNull(getRuntime(), "'runtime' is required to create a Function App");
+        final OffsetDateTime endOfLifeDate = newRuntime.getEndOfLifeDate();
+        if (BooleanUtils.isNotTrue(getSkipEndOfLifeValidation()) && Objects.nonNull(endOfLifeDate) && OffsetDateTime.now().isAfter(endOfLifeDate)) {
+            final String message = String.format("The runtime '%s' has reached end of life. " +
+                "Please upgrade to a newer version. Learn more: %s", newRuntime.getDisplayName(), FUNCTION_UPGRADE_RUNTIME_LINK);
+            throw new AzureToolkitRuntimeException(message);
+        }
+
         @Nullable final AppServicePlan newPlan = getAppServicePlan();
         final ContainerAppsEnvironment environment = getEnvironment();
         final Map<String, String> newAppSettings = getAppSettings();
@@ -771,6 +782,14 @@ public class FunctionAppDraft extends FunctionApp implements AzResource.Draft<Fu
         ensureConfig().setDeploymentContainer(deploymentContainer);
     }
 
+    public void setSkipEndOfLifeValidation(Boolean enableEOFChecking) {
+        ensureConfig().setSkipEndOfLifeValidation(enableEOFChecking);
+    }
+
+    public Boolean getSkipEndOfLifeValidation() {
+        return Optional.ofNullable(config).map(Config::getSkipEndOfLifeValidation).orElse(false);
+    }
+
     /**
      * {@code null} means not modified for properties
      */
@@ -791,5 +810,7 @@ public class FunctionAppDraft extends FunctionApp implements AzResource.Draft<Fu
         private FlexConsumptionConfiguration flexConsumptionConfiguration;
         private StorageAccount deploymentAccount = null;
         private BlobContainer deploymentContainer = null;
+        // validate eof of function
+        private Boolean skipEndOfLifeValidation = Boolean.TRUE;
     }
 }

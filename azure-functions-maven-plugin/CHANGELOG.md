@@ -1,6 +1,7 @@
 # Change Log
 All notable changes to the "Maven Plugin for Azure Function" will be documented in this file.
 - [Change Log](#change-log)
+  - [1.37.0](#1370)
   - [1.36.0](#1360)
   - [1.35.0](#1350)
   - [1.31.0](#1310)
@@ -28,6 +29,10 @@ All notable changes to the "Maven Plugin for Azure Function" will be documented 
   - [1.2.2](#122)
   - [1.2.1](#121)
   - [1.2.0](#120)
+
+## 1.37.0
+- Validate the deprecated status of Java runtime during function app creation and will fail the deployment if the runtime is EOL
+  - Add new parameter `skipEndOfLifeValidation` to skip the validation
 
 ## 1.36.0
 - Add support for Workload profiles Azure Container Apps environment

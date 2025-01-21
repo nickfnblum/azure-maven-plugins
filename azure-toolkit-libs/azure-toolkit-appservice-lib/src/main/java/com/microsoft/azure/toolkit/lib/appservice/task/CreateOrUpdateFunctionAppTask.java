@@ -303,6 +303,7 @@ public class CreateOrUpdateFunctionAppTask extends AzureTask<FunctionAppBase<?, 
             draft.setStorageAccount(storageAccount);
             draft.setEnvironment(environment);
             draft.setContainerConfiguration(functionAppConfig.containerConfiguration());
+            draft.setSkipEndOfLifeValidation(functionAppConfig.getSkipEndOfLifeValidation());
             final FunctionApp result = draft.createIfNotExist();
             Thread.sleep(10 * 1000); // workaround for service initialization
             return result;

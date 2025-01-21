@@ -221,6 +221,14 @@ public class DeployMojo extends AbstractFunctionMojo {
     @Parameter(property = "workloadProfileName")
     protected String workloadProfileName;
 
+    /**
+     * Boolean flag to control whether to check runtime is EOL during creation
+     *
+     */
+    @Getter
+    @Parameter(property = "functions.skipEndOfLifeValidation", defaultValue = "false")
+    protected Boolean skipEndOfLifeValidation;
+
     @Override
     @AzureOperation("user/functionapp.deploy_app")
     protected void doExecute() throws Throwable {
